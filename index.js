@@ -8,6 +8,7 @@ const helmet = require('helmet'); // Protege la API configurando varios headers 
 // Nota: Aquí irás agregando tus archivos de la carpeta /routes
 const indicatorRoutes = require('./routes/indicator.routes');
 const logroRoutes = require('./routes/logro.routes');
+const wishRoutes = require('./routes/wish.routes');
 
 // 3. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended: true })); // Para formularios complejos
 // Usamos v1 para que si el día de mañana cambias todo, no rompas lo viejo
 app.use('/api/v1/indicator', indicatorRoutes);
 app.use('/api/v1/logro', logroRoutes);
+app.use('/api/v1/wish', wishRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
