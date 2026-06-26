@@ -10,7 +10,7 @@ const getAllIndicators = async (usuario) => {
             i.usuario, 
             i.created_at,
             COUNT(d.id)::INT AS total_deseos
-        FROM public.indicators i
+        FROM public.indicadores i  -- ✅ CORREGIDO: public.indicators -> public.indicadores
         LEFT JOIN public.deseos d ON i.id = d.indicador_id
         WHERE i.usuario = $1
         GROUP BY i.id
@@ -28,7 +28,7 @@ const getWishesByIndicator = async (indicadorId, usuario) => {
                 SELECT row_to_json(i_data)
                 FROM (
                     SELECT id, nombre, valor, tipo, usuario, created_at 
-                    FROM public.indicators 
+                    FROM public.indicadores -- ✅ CORREGIDO: public.indicators -> public.indicadores
                     WHERE id = $1 AND usuario = $2
                 ) i_data
             ) AS indicator,
@@ -43,7 +43,7 @@ const getWishesByIndicator = async (indicadorId, usuario) => {
                     ) ORDER BY d.id DESC
                 ) FILTER (WHERE d.id IS NOT NULL), '[]'
             ) AS wishes
-        FROM public.indicators i
+        FROM public.indicadores i -- ✅ CORREGIDO: public.indicators -> public.indicadores
         LEFT JOIN public.deseos d ON i.id = d.indicador_id
         WHERE i.id = $1 AND i.usuario = $2
         GROUP BY i.id;
@@ -57,7 +57,8 @@ const getWishesByIndicator = async (indicadorId, usuario) => {
     return rows[0];
 };
 
-const createWish = async (data) => {
+// ✅ CAMBIADO: Nombre de la función a saveDeseo para alinearse con tu controlador
+const saveDeseo = async (data) => {
     const query = `
         INSERT INTO public.deseos (indicador_id, nombre, usuario)
         VALUES ($1, $2, $3)
@@ -72,5 +73,5 @@ const createWish = async (data) => {
 module.exports = { 
     getAllIndicators,
     getWishesByIndicator,
-    createWish,
+    saveDeseo,
 };
