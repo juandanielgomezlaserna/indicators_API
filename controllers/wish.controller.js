@@ -85,7 +85,7 @@ const create = async (req, res, next) => {
 };
 
 module.exports = {
-    getIndicators: getWishesByIndicator,
-    create,
-    getIndicators
+    getIndicators,         // Exporta la función para listar (router.get('/indicator', ...))
+    getWishesByIndicator,  // Exporta la función por ID (router.get('/indicator/:id', ...))
+    create                 // Exporta la creación (router.post('/', ...))
 };
