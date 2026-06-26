@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { getIndicators, create } = require('../controllers/wish.controller'); 
+const { getIndicators, create, getWishesByIndicator } = require('../controllers/wish.controller'); 
 const { validateWish } = require('../validators/wish.validator');
 
 // GET
 router.get('/indicator', getIndicators);
-router.get('/indicator/:id', getIndicators);
+router.get('/indicator/:id', getWishesByIndicator);
 //router.get('/:id', getById);
 
 // POST

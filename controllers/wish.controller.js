@@ -29,13 +29,14 @@ const getIndicators = async (req, res, next) => {
     }
 };
 
+// Cambiamos el nombre de la función interna para que coincida exactamente con lo que exportas y lo que usa tu router
 const getWishesByIndicator = async (req, res, next) => {
     try {
         const { id } = req.params;
         const usuario = req.headers['usuario'];
 
-        // Llamamos al servicio unificado
-        const result = await deseoService.getWishesByIndicator(id, usuario);
+        // ✅ CORREGIDO: Cambiado 'deseoService' por 'wishService'
+        const result = await wishService.getWishesByIndicator(id, usuario);
 
         // Si el indicador no existe o no tiene datos válidos, devolvemos 404
         if (!result || !result.indicator) {
@@ -84,7 +85,7 @@ const create = async (req, res, next) => {
 };
 
 module.exports = {
-    getIndicators,
-    getWishesByIndicator,
-    create
+    getIndicators: getWishesByIndicator,
+    create,
+    getIndicators
 };
