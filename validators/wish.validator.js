@@ -16,7 +16,7 @@ const validateWish = [
         .isInt({ min: 1 })
         .withMessage('El campo "indicador_id" debe ser un número entero válido.'),
 
-    // 2. Validar que el nombre del deseo no esté vacío y tenga un largo correcto
+    // 2. Validar que el nombre del deseo no esté vacío
     body('nombre')
         .trim()
         .notEmpty()
@@ -24,19 +24,12 @@ const validateWish = [
         .isLength({ max: 150 })
         .withMessage('El nombre del deseo no puede tener más de 150 caracteres.'),
 
-    // 3. Validar el header de usuario
-    header('usuario')
-        .notEmpty()
-        .withMessage('El header "usuario" es obligatorio para registrar el deseo.'),
-
-    // 4. Middleware para atrapar y retornar los errores
+    // 3. Middleware para atrapar errores
     (req, res, next) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({
-                status: 'error',
-                errors: errors.array().map(err => err.msg)
-            });
+            const errorMessages = (errors.array() || []).map(err => err.msg);
+            return res.status(400).json({ status: 'error', errors: errorMessages });
         }
         next();
     }

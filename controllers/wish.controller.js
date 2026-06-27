@@ -62,18 +62,13 @@ const getWishesByIndicator = async (req, res, next) => {
 
 const create = async (req, res, next) => {
     try {
+        // 1. Extraemos únicamente lo que viene en el cuerpo (body) enviado por Flutter
         const { indicador_id, nombre } = req.body;
-        const usuario = req.headers['usuario'];
 
-        // Estructuramos la data unificada para el servicio
-        const deseoData = {
-            indicador_id,
-            nombre,
-            usuario
-        };
+        // 2. Pasamos solo estos dos parámetros al servicio
+        const result = await wishService.saveDeseo({ indicador_id, nombre });
 
-        const result = await wishService.saveDeseo(deseoData);
-
+        // 3. Respuesta exitosa
         res.status(201).json({
             status: 'success',
             message: '¡Deseo guardado con éxito en tu lista de futuros!',
