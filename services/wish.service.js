@@ -60,12 +60,12 @@ const getWishesByIndicator = async (indicadorId, usuario) => {
 // ✅ CAMBIADO: Nombre de la función a saveDeseo para alinearse con tu controlador
 const saveDeseo = async (data) => {
     const query = `
-        INSERT INTO public.deseos (indicador_id, nombre, usuario)
-        VALUES ($1, $2, $3)
-        RETURNING id, indicador_id, nombre, usuario, created_at;
+        INSERT INTO public.deseos (indicador_id, nombre)
+        VALUES ($1, $2)
+        RETURNING id, indicador_id, nombre, created_at; -- ✅ Eliminado 'usuario' del INSERT y RETURNING
     `;
     
-    const values = [data.indicador_id, data.nombre, data.usuario];
+    const values = [data.indicador_id, data.nombre]; // ✅ Ahora solo pasamos 2 valores
     const { rows } = await db.query(query, values);
     return rows[0];
 };
