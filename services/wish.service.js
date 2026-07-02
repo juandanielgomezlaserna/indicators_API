@@ -57,6 +57,21 @@ const getWishesByIndicator = async (indicadorId, usuario) => {
     return rows[0];
 };
 
+const removeWish = async (id) => {
+    const query = `
+        DELETE FROM public.deseos
+        WHERE id = $1
+        RETURNING id, indicador_id, nombre, created_at;
+    `;
+
+    const { rows } = await db.query(query, [id]);
+    
+    // Si la consulta no afectó a ninguna fila, retornamos null para activar el 404
+    if (rows.length === 0) return null;
+
+    return rows[0];
+};
+
 // ✅ CAMBIADO: Nombre de la función a saveDeseo para alinearse con tu controlador
 const saveDeseo = async (data) => {
     const query = `
@@ -74,4 +89,5 @@ module.exports = {
     getAllIndicators,
     getWishesByIndicator,
     saveDeseo,
+    removeWish,
 };

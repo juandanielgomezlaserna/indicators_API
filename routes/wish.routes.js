@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getIndicators, create, getWishesByIndicator } = require('../controllers/wish.controller'); 
+const { getIndicators, create, getWishesByIndicator, deleteWish } = require('../controllers/wish.controller'); 
 const { validateWish } = require('../validators/wish.validator');
 
 // GET
@@ -10,5 +10,8 @@ router.get('/indicator/:id', getWishesByIndicator);
 
 // POST
 router.post('/', validateWish, create);
+
+// DELETE
+router.delete('/:id', deleteWish);
 
 module.exports = router;

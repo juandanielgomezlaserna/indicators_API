@@ -79,8 +79,36 @@ const create = async (req, res, next) => {
     }
 };
 
+const deleteWish = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        // Invocamos la lógica de negocio en el servicio
+        const deletedWish = await wishService.removeWish(id);
+
+        // Si el id no existía en la base de datos, rows vino vacío (null)
+        if (!deletedWish) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'El deseo solicitado no existe o ya ha sido eliminado.'
+            });
+        }
+
+        // Respuesta exitosa
+        res.status(200).json({
+            status: 'success',
+            message: '¡Deseo eliminado con éxito de tu lista de futuros!',
+            data: deletedWish
+        });
+    } catch (error) {
+        // Cualquier error del motor de BD (Neon) cae directamente al manejador global
+        next(error);
+    }
+};
+
 module.exports = {
-    getIndicators,         // Exporta la función para listar (router.get('/indicator', ...))
-    getWishesByIndicator,  // Exporta la función por ID (router.get('/indicator/:id', ...))
-    create                 // Exporta la creación (router.post('/', ...))
+    getIndicators,
+    getWishesByIndicator,
+    create,
+    deleteWish,
 };
