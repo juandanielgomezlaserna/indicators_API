@@ -1,12 +1,36 @@
+/**
+ * Routes: Cartera Movimientos
+ * Path Base: /api/v1/cartera/movimientos
+ */
+
 const express = require('express');
 const router = express.Router();
+
+// Controllers
 const carteraMovimientoController = require('../controllers/carteraMovimiento.controller');
+
+// Validators (Middlewares de Zod)
 const { validateMovimiento } = require('../validators/carteraMovimiento.validator');
 
-// Registrar Gasto o Ingreso (con middleware Validator)
-router.post('/', validateMovimiento, carteraMovimientoController.createMovimiento);
+/**
+ * @route   POST /api/v1/cartera/movimientos
+ * @desc    Registra un nuevo movimiento (Gasto o Ingreso)
+ * @access  Private / Public
+ */
+router.post(
+  '/', 
+  validateMovimiento, 
+  carteraMovimientoController.createMovimiento
+);
 
-// Obtener historial reciente del usuario
-router.get('/:usuario', carteraMovimientoController.getMovimientos);
+/**
+ * @route   GET /api/v1/cartera/movimientos/:usuario
+ * @desc    Obtiene el historial reciente de movimientos de un usuario
+ * @access  Private / Public
+ */
+router.get(
+  '/:usuario', 
+  carteraMovimientoController.getMovimientos
+);
 
 module.exports = router;
