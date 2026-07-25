@@ -1,31 +1,20 @@
 /**
  * Service: Cartera Movimientos
- * Responsabilidad: Reglas de negocio, transacciones relacionales ACID y persistencia en DB.
+ * Responsabilidad: Reglas de negocio y persistencia acorde al esquema relacional de Neon DB.
  */
 
 const { pool } = require('../config/db');
 
 /**
- * Registra un nuevo movimiento (Gasto o Ingreso) y actualiza el balance del bolsillo atómicamente.
- * 
- * @param {Object} dto - Objeto de transferencia de datos (DTO)
- * @param {number} dto.bolsillo_id - ID del bolsillo origen/destino
- * @param {string} dto.tipo - 'ingreso' o 'gasto'
- * @param {number} dto.monto - Valor numérico de la transacción
- * @param {string} dto.categoria - Categoría del movimiento (ej: 'Comida', 'Salario')
- * @param {string} [dto.descripcion] - Detalle opcional del movimiento
- * @param {string} dto.usuario - Identificador único del usuario
- * @returns {Promise<Object>} Movimiento registrado y el nuevo balance recalculado
+ * Registra un movimiento (Gasto o Ingreso) asignando el bolsillo origen o destino según corresponda.
  */
 const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripcion, usuario }) => {
-  // Solicitamos un cliente dedicado del Pool para la transacción aislada
   const client = await pool.connect();
 
   try {
-    // 1. Iniciar transacción SQL ACID
     await client.query('BEGIN');
 
-    // 2. Verificar existencia del bolsillo y obtener su balance actual (Casteado a FLOAT)
+    // 1. Verificar existencia del bolsillo y obtener su balance actual
     const bolsilloQuery = `
       SELECT id, balance::FLOAT 
       FROM public.cartera_bolsillos 
@@ -35,7 +24,7 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
 
     if (bolsilloRes.rows.length === 0) {
       const error = new Error('El bolsillo especificado no existe o no pertenece al usuario.');
-      error.statusCode = 404; // Código procesado por el manejador global de errores
+      error.statusCode = 404;
       throw error;
     }
 
@@ -43,27 +32,38 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     const esGasto = tipo.toLowerCase() === 'gasto';
     const montoNumerico = Number(monto);
     
-    // Recalcular saldo de forma segura
     const nuevoBalance = esGasto 
       ? balanceActual - montoNumerico 
       : balanceActual + montoNumerico;
 
-    // 3. Registrar la transacción en la tabla de movimientos
+    // 2. Mapeo de Foreign Keys según el modelo de la BD:
+    // Si es gasto, el bolsillo afectado entra en `bolsillo_origen_id`
+    // Si es ingreso, entra en `bolsillo_destino_id`
+    const bolsilloOrigenId = esGasto ? bolsillo_id : null;
+    const bolsilloDestinoId = esGasto ? null : bolsillo_id;
+
+    // 3. Insertar utilizando los nombres reales de las columnas en Neon DB
     const insertMovimientoQuery = `
-      INSERT INTO public.cartera_movimientos (bolsillo_id, tipo, monto, categoria, descripcion, usuario, fecha)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      RETURNING id, bolsillo_id, tipo, monto::FLOAT, categoria, descripcion, usuario, fecha;
+      INSERT INTO public.cartera_movimientos (
+        usuario, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      RETURNING 
+        id, usuario, tipo, monto::FLOAT, categoria, descripcion, 
+        bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
     `;
+    
     const movimientoRes = await client.query(insertMovimientoQuery, [
-      bolsillo_id,
+      usuario,
       tipo.toLowerCase(),
       montoNumerico,
       categoria,
       descripcion || null,
-      usuario
+      bolsilloOrigenId,
+      bolsilloDestinoId
     ]);
 
-    // 4. Actualizar el saldo definitivo en la tabla de bolsillos
+    // 4. Actualizar el saldo en la tabla de bolsillos
     const updateBolsilloQuery = `
       UPDATE public.cartera_bolsillos
       SET balance = $1, updated_at = NOW()
@@ -71,7 +71,6 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     `;
     await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuario]);
 
-    // 5. Confirmar y persistir los cambios en PostgreSQL
     await client.query('COMMIT');
 
     return {
@@ -80,40 +79,35 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     };
 
   } catch (error) {
-    // En caso de cualquier fallo en la transacción, se revierten todos los cambios
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    // Liberar la conexión devuelta al Pool siempre
     client.release();
   }
 };
 
 /**
- * Obtiene el historial reciente de movimientos de un usuario con el nombre de su bolsillo asignado.
- * 
- * @param {string} usuario - Identificador único del usuario
- * @returns {Promise<Array>} Lista con los últimos 20 movimientos registrados
+ * Obtiene los últimos movimientos de un usuario cruzando con la tabla de bolsillos
  */
 const getMovimientosByUsuario = async (usuario) => {
   const query = `
     SELECT 
       m.id, 
-      m.bolsillo_id, 
       m.tipo, 
       m.monto::FLOAT, 
       m.categoria, 
       m.descripcion, 
-      m.fecha,
+      m.fecha_transaccion AS fecha,
+      COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id) AS bolsillo_id,
       b.nombre AS bolsillo_nombre
     FROM public.cartera_movimientos m
-    INNER JOIN public.cartera_bolsillos b ON m.bolsillo_id = b.id
+    LEFT JOIN public.cartera_bolsillos b 
+      ON b.id = COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id)
     WHERE m.usuario = $1
-    ORDER BY m.fecha DESC
+    ORDER BY m.fecha_transaccion DESC
     LIMIT 20;
   `;
 
-  // Para consultas simples de lectura (SELECT) ejecutamos la consulta directamente sobre la pool
   const { rows } = await pool.query(query, [usuario]);
   return rows;
 };
