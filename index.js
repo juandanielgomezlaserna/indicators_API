@@ -27,7 +27,7 @@ app.use('/api/v1/indicator', indicatorRoutes);
 app.use('/api/v1/logro', logroRoutes);
 app.use('/api/v1/wish', wishRoutes);
 app.use('/api/v1/cartera-bolsillos', carteraBolsilloRoutes);
-app.use('/api/cartera-movimientos', carteraMovimientoRoutes);
+app.use('/api/v1/cartera-movimientos', carteraMovimientoRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
