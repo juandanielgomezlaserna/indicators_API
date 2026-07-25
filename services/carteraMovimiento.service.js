@@ -3,28 +3,29 @@
  * Responsabilidad: Reglas de negocio, transacciones relacionales ACID y persistencia en DB.
  */
 
-const pool = require('../config/db');
+const { pool } = require('../config/db');
 
 /**
- * Registra un nuevo movimiento y actualiza de forma atómica el balance del bolsillo
- * @param {Object} dto - Datos del movimiento
+ * Registra un nuevo movimiento (Gasto o Ingreso) y actualiza el balance del bolsillo atómicamente.
+ * 
+ * @param {Object} dto - Objeto de transferencia de datos (DTO)
  * @param {number} dto.bolsillo_id - ID del bolsillo origen/destino
  * @param {string} dto.tipo - 'ingreso' o 'gasto'
  * @param {number} dto.monto - Valor numérico de la transacción
- * @param {string} dto.categoria - Categoría del movimiento
- * @param {string} [dto.descripcion] - Detalle opcional
+ * @param {string} dto.categoria - Categoría del movimiento (ej: 'Comida', 'Salario')
+ * @param {string} [dto.descripcion] - Detalle opcional del movimiento
  * @param {string} dto.usuario - Identificador único del usuario
- * @returns {Object} Movimiento creado y nuevo balance del bolsillo
+ * @returns {Promise<Object>} Movimiento registrado y el nuevo balance recalculado
  */
 const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripcion, usuario }) => {
-  // Solicitamos un cliente dedicado del Pool para ejecutar la transacción ACID
+  // Solicitamos un cliente dedicado del Pool para la transacción aislada
   const client = await pool.connect();
 
   try {
-    // 1. Iniciar transacción SQL
+    // 1. Iniciar transacción SQL ACID
     await client.query('BEGIN');
 
-    // 2. Verificar existencia del bolsillo y obtener balance actual (Casteado a FLOAT)
+    // 2. Verificar existencia del bolsillo y obtener su balance actual (Casteado a FLOAT)
     const bolsilloQuery = `
       SELECT id, balance::FLOAT 
       FROM public.cartera_bolsillos 
@@ -34,22 +35,20 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
 
     if (bolsilloRes.rows.length === 0) {
       const error = new Error('El bolsillo especificado no existe o no pertenece al usuario.');
-      error.statusCode = 404; // Le pasamos el código al errorHandler global
+      error.statusCode = 404; // Código procesado por el manejador global de errores
       throw error;
     }
 
     const balanceActual = bolsilloRes.rows[0].balance;
     const esGasto = tipo.toLowerCase() === 'gasto';
+    const montoNumerico = Number(monto);
     
-    // Calcular nuevo balance
+    // Recalcular saldo de forma segura
     const nuevoBalance = esGasto 
-      ? balanceActual - monto 
-      : balanceActual + monto;
+      ? balanceActual - montoNumerico 
+      : balanceActual + montoNumerico;
 
-    // Optional: Podrías validar aquí si no permites saldos negativos en debito/efectivo
-    // if (esGasto && nuevoBalance < 0) { throw new Error('Saldo insuficiente'); }
-
-    // 3. Insertar el registro del movimiento
+    // 3. Registrar la transacción en la tabla de movimientos
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (bolsillo_id, tipo, monto, categoria, descripcion, usuario, fecha)
       VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -58,13 +57,13 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     const movimientoRes = await client.query(insertMovimientoQuery, [
       bolsillo_id,
       tipo.toLowerCase(),
-      monto,
+      montoNumerico,
       categoria,
       descripcion || null,
       usuario
     ]);
 
-    // 4. Actualizar el saldo del bolsillo impactado
+    // 4. Actualizar el saldo definitivo en la tabla de bolsillos
     const updateBolsilloQuery = `
       UPDATE public.cartera_bolsillos
       SET balance = $1, updated_at = NOW()
@@ -72,7 +71,7 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     `;
     await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuario]);
 
-    // 5. Confirmar transacción en la BD
+    // 5. Confirmar y persistir los cambios en PostgreSQL
     await client.query('COMMIT');
 
     return {
@@ -81,19 +80,20 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     };
 
   } catch (error) {
-    // En caso de fallo en cualquier punto, revertimos todos los cambios
+    // En caso de cualquier fallo en la transacción, se revierten todos los cambios
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    // Liberamos la conexión para mantener sana la pool
+    // Liberar la conexión devuelta al Pool siempre
     client.release();
   }
 };
 
 /**
- * Obtiene los últimos movimientos de un usuario con el nombre de su bolsillo asociado
+ * Obtiene el historial reciente de movimientos de un usuario con el nombre de su bolsillo asignado.
+ * 
  * @param {string} usuario - Identificador único del usuario
- * @returns {Array} Lista de los últimos 20 movimientos
+ * @returns {Promise<Array>} Lista con los últimos 20 movimientos registrados
  */
 const getMovimientosByUsuario = async (usuario) => {
   const query = `
@@ -113,7 +113,7 @@ const getMovimientosByUsuario = async (usuario) => {
     LIMIT 20;
   `;
 
-  // Para consultas simples de lectura (SELECT) usamos directament pool.query()
+  // Para consultas simples de lectura (SELECT) ejecutamos la consulta directamente sobre la pool
   const { rows } = await pool.query(query, [usuario]);
   return rows;
 };
