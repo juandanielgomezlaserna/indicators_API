@@ -1,12 +1,12 @@
 /**
  * Service: Cartera Movimientos
- * Responsabilidad: Reglas de negocio y persistencia acorde al esquema relacional de Neon DB.
+ * Responsabilidad: Lógica de negocio, transacciones ACID y alineación con el esquema de Neon DB.
  */
 
 const { pool } = require('../config/db');
 
 /**
- * Registra un movimiento (Gasto o Ingreso) asignando el bolsillo origen o destino según corresponda.
+ * Registra un movimiento (Gasto o Ingreso) y actualiza el saldo del bolsillo impactado.
  */
 const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripcion, usuario }) => {
   const client = await pool.connect();
@@ -14,7 +14,7 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
   try {
     await client.query('BEGIN');
 
-    // 1. Verificar existencia del bolsillo y obtener su balance actual
+    // 1. Validar existencia del bolsillo y obtener balance actual
     const bolsilloQuery = `
       SELECT id, balance::FLOAT 
       FROM public.cartera_bolsillos 
@@ -36,13 +36,11 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
       ? balanceActual - montoNumerico 
       : balanceActual + montoNumerico;
 
-    // 2. Mapeo de Foreign Keys según el modelo de la BD:
-    // Si es gasto, el bolsillo afectado entra en `bolsillo_origen_id`
-    // Si es ingreso, entra en `bolsillo_destino_id`
+    // 2. Mapeo relacional de FKs (Gasto -> origen | Ingreso -> destino)
     const bolsilloOrigenId = esGasto ? bolsillo_id : null;
     const bolsilloDestinoId = esGasto ? null : bolsillo_id;
 
-    // 3. Insertar utilizando los nombres reales de las columnas en Neon DB
+    // 3. Insertar el movimiento en cartera_movimientos
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
         usuario, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
@@ -63,10 +61,10 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
       bolsilloDestinoId
     ]);
 
-    // 4. Actualizar el saldo en la tabla de bolsillos
+    // 4. Actualizar el saldo del bolsillo (Removido 'updated_at' para coincidir con la BD)
     const updateBolsilloQuery = `
       UPDATE public.cartera_bolsillos
-      SET balance = $1, updated_at = NOW()
+      SET balance = $1
       WHERE id = $2 AND usuario = $3;
     `;
     await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuario]);
@@ -87,7 +85,7 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
 };
 
 /**
- * Obtiene los últimos movimientos de un usuario cruzando con la tabla de bolsillos
+ * Obtiene el historial reciente mapeando orígenes y destinos de bolsillos
  */
 const getMovimientosByUsuario = async (usuario) => {
   const query = `
