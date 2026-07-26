@@ -12,6 +12,7 @@ const wishRoutes = require('./routes/wish.routes');
 const carteraBolsilloRoutes = require('./routes/carteraBolsillo.routes');
 const carteraMovimientoRoutes = require('./routes/carteraMovimiento.routes');
 const carteraDeudaRoutes = require('./routes/carteraDeuda.routes');
+const carteraTransferenciaRoutes = require('./routes/carteraTransferencia.routes');
 
 // 3. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/v1/wish', wishRoutes);
 app.use('/api/v1/cartera-bolsillos', carteraBolsilloRoutes);
 app.use('/api/v1/cartera-movimientos', carteraMovimientoRoutes);
 app.use('/api/v1/cartera-deudas', carteraDeudaRoutes);
+app.use('/api/v1/cartera-transferencia', carteraTransferenciaRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
