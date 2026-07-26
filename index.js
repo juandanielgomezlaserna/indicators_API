@@ -31,7 +31,7 @@ app.use('/api/v1/wish', wishRoutes);
 app.use('/api/v1/cartera-bolsillos', carteraBolsilloRoutes);
 app.use('/api/v1/cartera-movimientos', carteraMovimientoRoutes);
 app.use('/api/v1/cartera-deudas', carteraDeudaRoutes);
-app.use('/api/v1/cartera-transferencia', carteraTransferenciaRoutes);
+app.use('/api/v1/cartera-transferencias', carteraTransferenciaRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
