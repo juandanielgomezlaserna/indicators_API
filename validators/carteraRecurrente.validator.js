@@ -35,6 +35,26 @@ const validateCreateRecurrente = (req, res, next) => {
   }
 };
 
+const { z } = require('zod');
+
+const ejecutarRecurrenteSchema = z.object({
+  usuario: z.string({ required_error: 'El usuario es obligatorio' }).min(1)
+});
+
+const validateEjecutarRecurrente = (req, res, next) => {
+  try {
+    req.body = ejecutarRecurrenteSchema.parse(req.body);
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validación fallida para ejecutar recurrente',
+      errors: error.errors
+    });
+  }
+};
+
 module.exports = {
-  validateCreateRecurrente
+  validateCreateRecurrente,
+  validateEjecutarRecurrente,
 };

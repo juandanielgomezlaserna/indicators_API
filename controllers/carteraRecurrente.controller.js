@@ -45,8 +45,24 @@ const toggleEstado = async (req, res, next) => {
   }
 };
 
+const ejecutar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { usuario } = req.body;
+    const resultado = await carteraRecurrenteService.ejecutarRecurrente(id, usuario);
+    
+    return res.status(200).json({
+      status: 'success',
+      data: resultado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createRecurrente,
   getRecurrentes,
-  toggleEstado
+  toggleEstado,
+  ejecutar,
 };

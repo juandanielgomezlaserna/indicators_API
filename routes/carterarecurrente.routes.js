@@ -11,6 +11,7 @@ const { validateCreateRecurrente } = require('../validators/carteraRecurrente.va
 
 // Crear transacción recurrente
 router.post('/', validateCreateRecurrente, carteraRecurrenteController.createRecurrente);
+router.post('/:id/ejecutar', validateEjecutarRecurrente, carteraRecurrenteController.ejecutar);
 
 // Alternar estado activo/inactivo
 router.patch('/:id/toggle', carteraRecurrenteController.toggleEstado);
