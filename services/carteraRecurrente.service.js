@@ -121,10 +121,16 @@ const ejecutarRecurrente = async (id, usuario) => {
       throw error;
     }
 
-    // 3. Crear el Movimiento Histórico (usando 'bolsillo' en lugar de 'bolsillo_id')
+    // 3. Crear el Movimiento Histórico vinculando el bolsillo correspondiente
     const movimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, descripcion, monto, tipo, categoria, bolsillo, fecha_transaccion
+        usuario, 
+        tipo, 
+        monto, 
+        categoria, 
+        descripcion, 
+        bolsillo_origen_id, 
+        fecha_transaccion
       )
       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       RETURNING id;
@@ -132,10 +138,10 @@ const ejecutarRecurrente = async (id, usuario) => {
 
     await client.query(movimientoQuery, [
       usuario,
-      rec.descripcion,
-      rec.monto,
       rec.tipo,
+      rec.monto,
       rec.categoria,
+      rec.descripcion,
       rec.bolsillo_id
     ]);
 
