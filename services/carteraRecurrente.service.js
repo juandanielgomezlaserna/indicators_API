@@ -83,12 +83,6 @@ const toggleEstadoRecurrente = async (id, usuario) => {
   return rows[0];
 };
 
-/**
- * Service: Ejecutar Cobro / Abono de Recurrente
- * Transacción Atómica en PostgreSQL (Neon DB)
- */
-const { pool } = require('../config/db');
-
 const ejecutarRecurrente = async (id, usuario) => {
   const client = await pool.connect();
 
