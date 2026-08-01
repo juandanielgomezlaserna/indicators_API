@@ -121,17 +121,18 @@ const ejecutarRecurrente = async (id, usuario) => {
       throw error;
     }
 
-    // 3. Crear el Movimiento Histórico
+    // 3. Crear el Movimiento Histórico (usando 'descripcion' en vez de 'concepto')
     const movimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, concepto, monto, tipo, categoria, bolsillo_id, fecha_transaccion
+        usuario, descripcion, monto, tipo, categoria, bolsillo_id, fecha_transaccion
       )
       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       RETURNING id;
     `;
+
     await client.query(movimientoQuery, [
       usuario,
-      rec.descripcion,
+      rec.descripcion, // <-- Pasamos el texto de la recurrente
       rec.monto,
       rec.tipo,
       rec.categoria,
