@@ -8,6 +8,10 @@ const router = express.Router();
 
 const carteraRecurrenteController = require('../controllers/carteraRecurrente.controller');
 const { validateCreateRecurrente } = require('../validators/carteraRecurrente.validator');
+const { 
+  validateCreateRecurrente, 
+  validateEjecutarRecurrente 
+} = require('../validators/carteraRecurrente.validator');
 
 // Crear transacción recurrente
 router.post('/', validateCreateRecurrente, carteraRecurrenteController.createRecurrente);
