@@ -35,8 +35,6 @@ const validateCreateRecurrente = (req, res, next) => {
   }
 };
 
-const { z } = require('zod');
-
 const ejecutarRecurrenteSchema = z.object({
   usuario: z.string({ required_error: 'El usuario es obligatorio' }).min(1)
 });
