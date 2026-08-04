@@ -25,5 +25,3 @@ router.patch('/:id', validateUpdateRecurrente, carteraRecurrenteController.updat
 router.get('/:usuario', carteraRecurrenteController.getRecurrentes);
 
 module.exports = router;
-
-//Holi
