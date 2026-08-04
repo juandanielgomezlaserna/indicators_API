@@ -53,7 +53,6 @@ const validateEjecutarRecurrente = (req, res, next) => {
 };
 
 const updateRecurrenteSchema = z.object({
-  usuario: z.string().min(1).optional(),
   descripcion: z.string().min(1).optional(),
   monto: z.coerce.number().positive('El monto debe ser mayor a 0').optional(),
   tipo: z.enum(['gasto', 'ingreso', 'GASTO', 'INGRESO']).optional(),
