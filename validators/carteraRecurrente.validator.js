@@ -53,15 +53,15 @@ const validateEjecutarRecurrente = (req, res, next) => {
 };
 
 const updateRecurrenteSchema = z.object({
-  usuario: z.string({ required_error: 'El usuario es obligatorio para validar permisos' }).min(1),
+  usuario: z.string().min(1).optional(),
   descripcion: z.string().min(1).optional(),
-  monto: z.number().positive('El monto debe ser mayor a 0').optional(),
+  monto: z.coerce.number().positive('El monto debe ser mayor a 0').optional(),
   tipo: z.enum(['gasto', 'ingreso', 'GASTO', 'INGRESO']).optional(),
   categoria: z.string().min(1).optional(),
   frecuencia: z.string().min(1).optional(),
-  dia_pago: z.number().int().optional().nullable(),
+  dia_pago: z.coerce.number().int().optional().nullable(),
   proxima_ejecucion: z.string().min(1).optional(),
-  bolsillo_id: z.number().int().optional(),
+  bolsillo_id: z.coerce.number().int().optional(),
   activo: z.boolean().optional()
 });
 
