@@ -19,7 +19,11 @@ router.post('/:id/ejecutar', validateEjecutarRecurrente, carteraRecurrenteContro
 
 // Alternar estado activo/inactivo
 router.patch('/:id/toggle', carteraRecurrenteController.toggleEstado);
-router.patch('/:id', validateUpdateRecurrente, carteraRecurrenteController.updateRecurrente);
+router.patch(
+  '/:id',
+  validateUpdateRecurrente,
+  carteraRecurrenteController.updateRecurrente
+);
 
 // Listar transacciones recurrentes del usuario
 router.get('/:usuario', carteraRecurrenteController.getRecurrentes);

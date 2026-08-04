@@ -178,36 +178,62 @@ const ejecutarRecurrente = async (id, usuario) => {
   }
 };
 
-/**
- * Service: Editar Transacción Recurrente
- */
-const updateRecurrente = async (id, datosActualizacion, usuarioId) => {
-  // 1. Buscar la transacción recurrente
-  const recurrente = await db.carteraRecurrente.findUnique({
-    where: { id: Number(id) }
-  });
+const updateRecurrente = async (id, datosActualizados) => {
+  const client = await pool.connect();
 
-  // 2. Validar existencia
-  if (!recurrente) {
-    const error = new Error('Transacción recurrente no encontrada');
-    error.statusCode = 404;
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificar si el registro existe
+    const checkQuery = `SELECT id FROM public.cartera_recurrentes WHERE id = $1;`;
+    const checkRes = await client.query(checkQuery, [id]);
+
+    if (checkRes.rows.length === 0) {
+      const error = new Error('La transacción recurrente especificada no existe.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 2. Construcción dinámica del query UPDATE
+    const keys = Object.keys(datosActualizados);
+    if (keys.length === 0) {
+      const error = new Error('No se enviaron campos válidos para actualizar.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+
+    keys.forEach((key) => {
+      setClauses.push(`${key} = $${paramIndex}`);
+      values.push(datosActualizados[key]);
+      paramIndex++;
+    });
+
+    values.push(id); // Último parámetro para el WHERE id = $X
+
+    const updateQuery = `
+      UPDATE public.cartera_recurrentes
+      SET ${setClauses.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING 
+        id, usuario, tipo, monto::FLOAT, categoria, frecuencia, 
+        dia_pago, bolsillo_id, proxima_ejecucion, activo, descripcion;
+    `;
+
+    const result = await client.query(updateQuery, values);
+    await client.query('COMMIT');
+
+    return result.rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
   }
-
-  // 3. Validar permisos de usuario (si se aplica validación por propietario)
-  if (usuarioId && recurrente.usuario !== usuarioId) {
-    const error = new Error('No tienes permisos para modificar este recurso');
-    error.statusCode = 403;
-    throw error;
-  }
-
-  // 4. Ejecutar la actualización en la BD
-  const recurrenteActualizada = await db.carteraRecurrente.update({
-    where: { id: Number(id) },
-    data: datosActualizacion
-  });
-
-  return recurrenteActualizada;
 };
 
 module.exports = {

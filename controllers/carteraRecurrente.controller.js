@@ -63,26 +63,19 @@ const ejecutar = async (req, res, next) => {
 const updateRecurrente = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // Si la autenticación pone al usuario en req.user o viene en req.body
-    const usuarioId = req.user?.id || req.body.usuario; 
 
-    const resultado = await carteraRecurrenteService.updateRecurrente(
+    const recurrenteActualizado = await carteraRecurrenteService.updateRecurrente(
       id,
-      req.body,
-      usuarioId
+      req.body
     );
 
     return res.status(200).json({
       status: 'success',
-      data: resultado
+      message: 'Transacción recurrente actualizada correctamente',
+      data: recurrenteActualizado,
     });
   } catch (error) {
-    // Retorna el código asignado en el Service (404, 403) o cae a 500 si es un fallo inesperado
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      status: 'error',
-      message: error.message || 'Error interno del servidor'
-    });
+    next(error);
   }
 };
 
