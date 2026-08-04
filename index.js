@@ -14,7 +14,7 @@ const carteraMovimientoRoutes = require('./routes/carteraMovimiento.routes');
 const carteraDeudaRoutes = require('./routes/carteraDeuda.routes');
 const carteraTransferenciaRoutes = require('./routes/carteraTransferencia.routes');
 const carteraMetaRoutes = require('./routes/carteraMeta.routes');
-const carteraRecurrente = require('./routes/carterarecurrente.routes');
+const carteraRecurrente = require('./routes/carteraRecurrente.routes');
 
 // 3. INICIALIZACIÓN DE LA APP
 const app = express();

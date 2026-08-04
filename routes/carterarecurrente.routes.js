@@ -9,7 +9,8 @@ const router = express.Router();
 const carteraRecurrenteController = require('../controllers/carteraRecurrente.controller');
 const { 
   validateCreateRecurrente, 
-  validateEjecutarRecurrente 
+  validateEjecutarRecurrente, 
+  validateUpdateRecurrente
 } = require('../validators/carteraRecurrente.validator');
 
 // Crear transacción recurrente
@@ -18,6 +19,7 @@ router.post('/:id/ejecutar', validateEjecutarRecurrente, carteraRecurrenteContro
 
 // Alternar estado activo/inactivo
 router.patch('/:id/toggle', carteraRecurrenteController.toggleEstado);
+router.patch('/:id', validateUpdateRecurrente, carteraRecurrenteController.updateRecurrente);
 
 // Listar transacciones recurrentes del usuario
 router.get('/:usuario', carteraRecurrenteController.getRecurrentes);

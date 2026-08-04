@@ -60,9 +60,24 @@ const ejecutar = async (req, res, next) => {
   }
 };
 
+const updateRecurrente = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const resultado = await carteraRecurrenteService.updateRecurrente(id, req.body);
+
+    return res.status(200).json({
+      status: 'success',
+      data: resultado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createRecurrente,
   getRecurrentes,
   toggleEstado,
   ejecutar,
+  updateRecurrente,
 };

@@ -52,7 +52,34 @@ const validateEjecutarRecurrente = (req, res, next) => {
   }
 };
 
+const updateRecurrenteSchema = z.object({
+  usuario: z.string({ required_error: 'El usuario es obligatorio para validar permisos' }).min(1),
+  descripcion: z.string().min(1).optional(),
+  monto: z.number().positive('El monto debe ser mayor a 0').optional(),
+  tipo: z.enum(['gasto', 'ingreso', 'GASTO', 'INGRESO']).optional(),
+  categoria: z.string().min(1).optional(),
+  frecuencia: z.string().min(1).optional(),
+  dia_pago: z.number().int().optional().nullable(),
+  proxima_ejecucion: z.string().min(1).optional(),
+  bolsillo_id: z.number().int().optional(),
+  activo: z.boolean().optional()
+});
+
+const validateUpdateRecurrente = (req, res, next) => {
+  try {
+    req.body = updateRecurrenteSchema.parse(req.body);
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validación fallida para editar recurrente',
+      errors: error.errors
+    });
+  }
+};
+
 module.exports = {
   validateCreateRecurrente,
   validateEjecutarRecurrente,
+  validateUpdateRecurrente,
 };

@@ -178,9 +178,50 @@ const ejecutarRecurrente = async (id, usuario) => {
   }
 };
 
+/**
+ * Service: Editar Transacción Recurrente
+ */
+const updateRecurrente = async (id, payload) => {
+  const { usuario, ...fieldsToUpdate } = payload;
+
+  const keys = Object.keys(fieldsToUpdate);
+  if (keys.length === 0) {
+    const error = new Error('No se enviaron campos para actualizar');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Construcción dinámica de campos SQL SET ("descripcion = $1, monto = $2...")
+  const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
+  const values = keys.map(key => fieldsToUpdate[key]);
+
+  // Agregar ID y usuario como últimos parámetros de la query
+  const idParamIndex = keys.length + 1;
+  const usuarioParamIndex = keys.length + 2;
+  values.push(id, usuario);
+
+  const query = `
+    UPDATE public.cartera_recurrentes
+    SET ${setClauses.join(', ')}
+    WHERE id = $${idParamIndex} AND usuario = $${usuarioParamIndex}
+    RETURNING id, usuario, descripcion, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
+  `;
+
+  const { rows } = await pool.query(query, values);
+
+  if (rows.length === 0) {
+    const error = new Error('Transacción recurrente no encontrada o sin permisos');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 module.exports = {
   createRecurrente,
   getRecurrentesByUsuario,
   toggleEstadoRecurrente,
-  ejecutarRecurrente
+  ejecutarRecurrente,
+  updateRecurrente,
 };
