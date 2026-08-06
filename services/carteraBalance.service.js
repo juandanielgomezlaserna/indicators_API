@@ -3,51 +3,69 @@ const { pool } = require('../config/db');
 /**
  * Calcula el balance consolidado y el límite quincenal/semanal gastable
  */
-const getResumenBalance = async (usuario) => {
+const getResumenBalanceByUsuario = async (usuario) => {
   const query = `
     WITH 
-    -- 1. Balance total en bolsillos operables (Excluyendo Alcancía/Ahorros si tienen flag de tipo)
-    total_bolsillos AS (
-      SELECT COALESCE(SUM(balance), 0) AS disponible
+    -- 1. Dinero total líquido en bolsillos operativos (excluyendo Alcancía)
+    bolsillos_liquidos AS (
+      SELECT COALESCE(SUM(balance::FLOAT), 0) AS total_disponible
       FROM public.cartera_bolsillos
-      WHERE usuario = $1 AND LOWER(nombre) NOT LIKE '%alcancía%' AND LOWER(nombre) NOT LIKE '%alcancia%'
+      WHERE usuario = $1 
+        AND LOWER(nombre::text) NOT LIKE '%alcancía%' 
+        AND LOWER(nombre::text) NOT LIKE '%alcancia%'
     ),
-    -- 2. Recurrentes Mensuales activos
+    -- 2. Recurrentes Mensuales de tipo Gasto activos (Casteo ::text aplicado)
     recurrentes_mensuales AS (
-      SELECT COALESCE(SUM(monto), 0) AS total
+      SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
-      WHERE usuario = $1 AND activo = true AND LOWER(frecuencia) = 'mensual' AND LOWER(tipo) = 'gasto'
+      WHERE usuario = $1 
+        AND activo = true 
+        AND frecuencia::text = 'mensual' 
+        AND tipo::text = 'gasto'
     ),
-    -- 3. Recurrentes Quincenales activos
+    -- 3. Recurrentes Quincenales de tipo Gasto activos (Casteo ::text aplicado)
     recurrentes_quincenales AS (
-      SELECT COALESCE(SUM(monto), 0) AS total
+      SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
-      WHERE usuario = $1 AND activo = true AND LOWER(frecuencia) = 'quincenal' AND LOWER(tipo) = 'gasto'
+      WHERE usuario = $1 
+        AND activo = true 
+        AND frecuencia::text = 'quincenal' 
+        AND tipo::text = 'gasto'
     )
     SELECT 
-      b.disponible::FLOAT AS dinero_total,
-      rm.total::FLOAT AS gasto_mensual,
-      rq.total::FLOAT AS gasto_quincenal
-    FROM total_bolsillos b, recurrentes_mensuales rm, recurrentes_quincenales rq;
+      bl.total_disponible,
+      rm.total AS gasto_mensual_total,
+      rq.total AS gasto_quincenal_total
+    FROM bolsillos_liquidos bl, recurrentes_mensuales rm, recurrentes_quincenales rq;
   `;
 
   const { rows } = await pool.query(query, [usuario]);
   const data = rows[0];
 
-  // Cálculo de provisiones
-  const provisionMensual = data.gasto_mensual / 2;
-  const compromisosQuincena = data.gasto_quincenal + provisionMensual;
+  const dineroDisponible = data.total_disponible;
+  const deduccionMensual = data.gasto_mensual_total / 2; // Provisiona el 50% de recurrentes mensuales
+  const deduccionQuincenal = data.gasto_quincenal_total;   // 100% de recurrentes quincenales
+
+  const compromisosQuincena = deduccionMensual + deduccionQuincenal;
   
-  // Límite Gastable Real
-  const limiteQuincenal = Math.max(0, data.dinero_total - compromisosQuincena);
-  const limiteSemanal = limiteQuincenal / 2;
+  // Cálculo de Límites
+  const limiteQuincenalReal = Math.max(0, dineroDisponible - compromisosQuincena);
+  const limiteSemanalRecomendado = Math.round(limiteQuincenalReal / 2);
+
+  // Determinar estado financiero
+  let estadoFinanciero = 'Estable';
+  if (limiteSemanalRecomendado < 50000) {
+    estadoFinanciero = 'Crítico';
+  } else if (limiteSemanalRecomendado < 150000) {
+    estadoFinanciero = 'Ajustado';
+  }
 
   return {
-    dinero_total_disponible: data.dinero_total,
+    dinero_total_disponible: dineroDisponible,
     compromisos_quincena: compromisosQuincena,
-    limite_quincenal_recomendado: Math.round(limiteQuincenal),
-    limite_semanal_recomendado: Math.round(limiteSemanal),
-    estado: limiteSemanal > 100000 ? 'Estable' : 'Riesgo'
+    limite_quincenal_recomendado: Math.round(limiteQuincenalReal),
+    limite_semanal_recomendado: limiteSemanalRecomendado,
+    estado: estadoFinanciero
   };
 };
 
