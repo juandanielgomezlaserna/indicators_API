@@ -69,4 +69,4 @@ const getResumenBalanceByUsuario = async (usuario) => {
   };
 };
 
-module.exports = { getResumenBalance };
+module.exports = { getResumenBalanceByUsuario };
