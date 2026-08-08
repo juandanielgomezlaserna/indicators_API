@@ -1,13 +1,13 @@
 const { pool } = require('../config/db');
 
 /**
- * Calcula el balance consolidado y el límite quincenal/semanal gastable
+ * Service: Obtener Resumen de Balance para Dashboard
+ * Devuelve el cálculo final y el desglose paso a paso para el Frontend.
  */
 const getResumenBalanceByUsuario = async (usuario) => {
   const query = `
     WITH 
     -- 1. Dinero total en bolsillos operativos
-    -- (Filtro flexible para excluir 'alcancia' o 'alcancía' sin romper el SUM)
     bolsillos_liquidos AS (
       SELECT COALESCE(SUM(balance::FLOAT), 0) AS total_disponible
       FROM public.cartera_bolsillos
@@ -42,16 +42,19 @@ const getResumenBalanceByUsuario = async (usuario) => {
   const { rows } = await pool.query(query, [usuario]);
   const data = rows[0];
 
-  const dineroDisponible = data.total_disponible;
-  
-  // Deducciones
-  const deduccionMensual = data.gasto_mensual_total / 2; // Provisiones 50%
-  const deduccionQuincenal = data.gasto_quincenal_total;   // 100% quincenales
+  const dineroDisponible = Number(data.total_disponible);
+  const gastoMensualTotal = Number(data.gasto_mensual_total);
+  const gastoQuincenalTotal = Number(data.gasto_quincenal_total);
 
-  const compromisosQuincena = deduccionMensual + deduccionQuincenal;
+  // Operaciones de Reserva
+  const reservaMensual = gastoMensualTotal / 2; // Reserva del 50% para la quincena
+  const reservaQuincenal = gastoQuincenalTotal;  // Reserva del 100% de gastos quincenales
+
+  const compromisosQuincena = reservaMensual + reservaQuincenal;
   
-  // Límite Quincenal Real
-  const limiteQuincenalReal = Math.max(0, dineroDisponible - compromisosQuincena);
+  // Cálculo de Límites
+  const restaBruta = dineroDisponible - compromisosQuincena;
+  const limiteQuincenalReal = Math.max(0, restaBruta);
   const limiteSemanalRecomendado = Math.round(limiteQuincenalReal / 2);
 
   // Determinar Estado Financiero
@@ -67,7 +70,16 @@ const getResumenBalanceByUsuario = async (usuario) => {
     compromisos_quincena: compromisosQuincena,
     limite_quincenal_recomendado: Math.round(limiteQuincenalReal),
     limite_semanal_recomendado: limiteSemanalRecomendado,
-    estado: estadoFinanciero
+    estado: estadoFinanciero,
+    desglose_calculo: {
+      disponible_bolsillos: dineroDisponible,
+      gasto_mensual_total: gastoMensualTotal,
+      reserva_mensual_50: reservaMensual,
+      gasto_quincenal_100: reservaQuincenal,
+      total_compromisos: compromisosQuincena,
+      resta_bruta: restaBruta,
+      aplica_proteccion_cero: restaBruta < 0
+    }
   };
 };
 
