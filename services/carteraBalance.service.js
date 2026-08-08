@@ -2,19 +2,19 @@ const { pool } = require('../config/db');
 
 /**
  * Service: Obtener Resumen de Balance para Dashboard
- * Devuelve el cálculo final y el desglose paso a paso para el Frontend.
+ * Filtra únicamente los compromisos PENDIENTES de la quincena actual.
  */
 const getResumenBalanceByUsuario = async (usuario) => {
   const query = `
     WITH 
-    -- 1. Dinero total en bolsillos operativos
+    -- 1. Dinero total en bolsillos operativos (excluyendo Alcancía)
     bolsillos_liquidos AS (
       SELECT COALESCE(SUM(balance::FLOAT), 0) AS total_disponible
       FROM public.cartera_bolsillos
       WHERE usuario = $1 
         AND LOWER(nombre::text) NOT IN ('alcancia', 'alcancía')
     ),
-    -- 2. Recurrentes Mensuales de tipo Gasto activos
+    -- 2. Recurrentes Mensuales PENDIENTES en la quincena actual (proxima_ejecucion <= fin de quincena)
     recurrentes_mensuales AS (
       SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
@@ -22,8 +22,14 @@ const getResumenBalanceByUsuario = async (usuario) => {
         AND activo = true 
         AND frecuencia::text = 'mensual' 
         AND tipo::text = 'gasto'
+        AND proxima_ejecucion <= (
+          CASE 
+            WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 15 THEN (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '14 days')::DATE
+            ELSE (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::DATE
+          END
+        )
     ),
-    -- 3. Recurrentes Quincenales de tipo Gasto activos
+    -- 3. Recurrentes Quincenales PENDIENTES en la quincena actual
     recurrentes_quincenales AS (
       SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
@@ -31,11 +37,17 @@ const getResumenBalanceByUsuario = async (usuario) => {
         AND activo = true 
         AND frecuencia::text = 'quincenal' 
         AND tipo::text = 'gasto'
+        AND proxima_ejecucion <= (
+          CASE 
+            WHEN EXTRACT(DAY FROM CURRENT_DATE) <= 15 THEN (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '14 days')::DATE
+            ELSE (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::DATE
+          END
+        )
     )
     SELECT 
       bl.total_disponible,
-      rm.total AS gasto_mensual_total,
-      rq.total AS gasto_quincenal_total
+      rm.total AS gasto_mensual_pendiente,
+      rq.total AS gasto_quincenal_pendiente
     FROM bolsillos_liquidos bl, recurrentes_mensuales rm, recurrentes_quincenales rq;
   `;
 
@@ -43,19 +55,27 @@ const getResumenBalanceByUsuario = async (usuario) => {
   const data = rows[0];
 
   const dineroDisponible = Number(data.total_disponible);
-  const gastoMensualTotal = Number(data.gasto_mensual_total);
-  const gastoQuincenalTotal = Number(data.gasto_quincenal_total);
+  const gastoMensualPendiente = Number(data.gasto_mensual_pendiente);
+  const gastoQuincenalPendiente = Number(data.gasto_quincenal_pendiente);
 
-  // Operaciones de Reserva
-  const reservaMensual = gastoMensualTotal / 2; // Reserva del 50% para la quincena
-  const reservaQuincenal = gastoQuincenalTotal;  // Reserva del 100% de gastos quincenales
-
-  const compromisosQuincena = reservaMensual + reservaQuincenal;
+  // Solo provisionamos/descontamos lo que realmente falta por pagar en esta quincena
+  const reservaMensual = gastoMensualPendiente / 2;
+  const compromisosQuincena = reservaMensual + gastoQuincenalPendiente;
   
   // Cálculo de Límites
   const restaBruta = dineroDisponible - compromisosQuincena;
   const limiteQuincenalReal = Math.max(0, restaBruta);
   const limiteSemanalRecomendado = Math.round(limiteQuincenalReal / 2);
+
+  // Debug en consola
+  console.log('=== DEBUG BALANCE CORREGIDO ===');
+  console.log(`Disponible: $${dineroDisponible}`);
+  console.log(`Gasto Mensual PENDIENTE: $${gastoMensualPendiente}`);
+  console.log(`Gasto Quincenal PENDIENTE: $${gastoQuincenalPendiente}`);
+  console.log(`Compromisos Restantes Quincena: $${compromisosQuincena}`);
+  console.log(`Resta Bruta: $${restaBruta}`);
+  console.log(`Límite Semanal Recomendado: $${limiteSemanalRecomendado}`);
+  console.log('===============================');
 
   // Determinar Estado Financiero
   let estadoFinanciero = 'Estable';
@@ -65,16 +85,6 @@ const getResumenBalanceByUsuario = async (usuario) => {
     estadoFinanciero = 'Ajustado';
   }
 
-  console.log("=== DEBUG BALANCE ===");
-  console.log("Usuario recibido:", usuario);
-  console.log("Resultado RAW de la Query:", rows[0]);
-  console.log("Dinero Disponible (Bolsillos):", dineroDisponible);
-  console.log("Gasto Mensual Total:", gastoMensualTotal);
-  console.log("Gasto Quincenal Total:", gastoQuincenalTotal);
-  console.log("Compromisos Quincena:", compromisosQuincena);
-  console.log("Resta Bruta (Disponible - Compromisos):", restaBruta);
-  console.log("=====================");
-
   return {
     dinero_total_disponible: dineroDisponible,
     compromisos_quincena: compromisosQuincena,
@@ -83,9 +93,8 @@ const getResumenBalanceByUsuario = async (usuario) => {
     estado: estadoFinanciero,
     desglose_calculo: {
       disponible_bolsillos: dineroDisponible,
-      gasto_mensual_total: gastoMensualTotal,
-      reserva_mensual_50: reservaMensual,
-      gasto_quincenal_100: reservaQuincenal,
+      reserva_mensual_pendiente: reservaMensual,
+      gasto_quincenal_pendiente: gastoQuincenalPendiente,
       total_compromisos: compromisosQuincena,
       resta_bruta: restaBruta,
       aplica_proteccion_cero: restaBruta < 0
