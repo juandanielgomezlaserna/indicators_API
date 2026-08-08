@@ -65,6 +65,16 @@ const getResumenBalanceByUsuario = async (usuario) => {
     estadoFinanciero = 'Ajustado';
   }
 
+  console.log("=== DEBUG BALANCE ===");
+  console.log("Usuario recibido:", usuario);
+  console.log("Resultado RAW de la Query:", rows[0]);
+  console.log("Dinero Disponible (Bolsillos):", dineroDisponible);
+  console.log("Gasto Mensual Total:", gastoMensualTotal);
+  console.log("Gasto Quincenal Total:", gastoQuincenalTotal);
+  console.log("Compromisos Quincena:", compromisosQuincena);
+  console.log("Resta Bruta (Disponible - Compromisos):", restaBruta);
+  console.log("=====================");
+
   return {
     dinero_total_disponible: dineroDisponible,
     compromisos_quincena: compromisosQuincena,
