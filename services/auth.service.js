@@ -56,10 +56,6 @@ const login = async ({ usuario, password }) => {
   };
 };
 
-const { pool } = require('../config/db');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
 /**
  * Service: Registrar nuevo usuario y devolver Token permanente
  */
