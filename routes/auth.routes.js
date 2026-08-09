@@ -1,12 +1,10 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
 const authController = require('../controllers/auth.controller');
-const { validateLogin } = require('../validators/auth.validator');
+const { validateLogin, validateRegister } = require('../validators/auth.validator');
 
-/**
- * @route POST /api/v1/auth/login
- * @desc  Autenticar usuario y obtener Token JWT
- */
+const router = Router();
+
 router.post('/login', validateLogin, authController.login);
+router.post('/register', validateRegister, authController.register);
 
 module.exports = router;
