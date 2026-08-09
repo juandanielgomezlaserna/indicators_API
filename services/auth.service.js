@@ -56,19 +56,17 @@ const login = async ({ usuario, password }) => {
   };
 };
 
-/**
- * Service: Registrar nuevo usuario y devolver Token permanente
- */
 const register = async ({ nombre_completo, usuario, email, password }) => {
-  // 1. Verificar si el usuario o email ya están registrados
+  // 1. Verificar si el usuario o email ya existen
   const checkQuery = `
     SELECT id FROM public.usuario 
     WHERE usuario = $1 OR email = $2 
     LIMIT 1;
   `;
-  const existingUser = await pool.query(checkQuery, [usuario, email]);
+  const existingUserResult = await pool.query(checkQuery, [usuario, email]);
 
-  if (existingUser.rows.length > 0) {
+  // Asegúrate de usar .rows
+  if (existingUserResult.rows && existingUserResult.rows.length > 0) {
     throw { statusCode: 409, message: 'El usuario o el correo electrónico ya están registrados' };
   }
 
@@ -76,8 +74,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
   const salt = await bcrypt.genSalt(10);
   const password_hash = await bcrypt.hash(password, salt);
 
-  // 3. Insertar nuevo usuario en PostgreSQL
-  // token_version por defecto es 1, activo por defecto es true
+  // 3. Insertar nuevo usuario
   const insertQuery = `
     INSERT INTO public.usuario (nombre_completo, usuario, email, password_hash)
     VALUES ($1, $2, $3, $4)
@@ -93,7 +90,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
 
   const user = rows[0];
 
-  // 4. Generar Payload con la versión inicial del token
+  // 4. Generar Payload
   const payload = {
     id: user.id,
     usuario: user.usuario,
@@ -101,7 +98,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
     token_version: user.token_version,
   };
 
-  // 5. Firma sin expiresIn según tu arquitectura
+  // 5. Firma del token
   const token = jwt.sign(payload, process.env.JWT_SECRET);
 
   return {
