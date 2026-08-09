@@ -17,6 +17,7 @@ const carteraMetaRoutes = require('./routes/carteraMeta.routes');
 const carteraRecurrente = require('./routes/carteraRecurrente.routes');
 const carteraBalance = require('./routes/carteraBalance.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
+const authRoutes = require('./routes/auth.routes');
 
 // 3. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/v1/cartera-metas', carteraMetaRoutes);
 app.use('/api/v1/cartera-recurrentes', carteraRecurrente);
 app.use('/api/v1/cartera-balance', carteraBalance);
 app.use('/api/v1/usuario', usuarioRoutes);
+app.use('/api/v1/auth', authRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
