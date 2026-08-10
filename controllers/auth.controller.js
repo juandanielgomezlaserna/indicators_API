@@ -32,6 +32,7 @@ const register = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
+    console.log('Error en registerController:', error); // <- Imprime el error real en la consola de Node/Render
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         status: 'error',
