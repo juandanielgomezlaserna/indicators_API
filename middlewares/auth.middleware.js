@@ -15,7 +15,7 @@ const authMiddleware = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   // 2. Comparar con el token estático de entorno
-  if (token !== process.env.DEV_API_TOKEN) {
+  if (token !== process.env.NODE_ENV) {
     return res.status(403).json({
       status: 'error',
       message: 'Token inválido o sin permisos',
