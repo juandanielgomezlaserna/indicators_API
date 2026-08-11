@@ -5,7 +5,7 @@
  */
 
 const { z } = require('zod');
-const indicatorService = require('../services/indicadores.service');
+const indicatorService = require('../services/indicador.service');
 
 // -----------------------------------------------------------------------------
 // Validadores (Zod)
