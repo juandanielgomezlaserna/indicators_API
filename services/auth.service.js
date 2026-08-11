@@ -3,9 +3,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const login = async ({ usuario, password }) => {
-  // 1. Consulta apuntando correctamente a public.usuario y columnas reales
+  // 1. Apuntando a public.usuario con la columna real 'password_hash'
   const query = `
-    SELECT id, usuario, email, password, nombre_completo, activo, token_version, created_at 
+    SELECT id, usuario, email, password_hash, nombre_completo, activo, token_version, created_at 
     FROM public.usuario 
     WHERE (usuario = $1 OR email = $1) AND activo = true;
   `;
@@ -16,17 +16,17 @@ const login = async ({ usuario, password }) => {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 2. Validar contraseña contra 'password'
-  const isMatch = await bcrypt.compare(password, user.password);
+  // 2. Validar contraseña contra 'password_hash'
+  const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 3. Incrementar token_version
+  // 3. Incrementar token_version y actualizar 'ultimo_acceso'
   const newVersion = (user.token_version || 0) + 1;
   await pool.query(
     `UPDATE public.usuario 
-     SET token_version = $1 
+     SET token_version = $1, ultimo_acceso = CURRENT_TIMESTAMP 
      WHERE id = $2;`,
     [newVersion, user.id]
   );
@@ -42,7 +42,7 @@ const login = async ({ usuario, password }) => {
   // 5. Firmar Token
   const token = jwt.sign(payload, process.env.JWT_SECRET);
 
-  // 6. Retornar respuesta mapeada con created_at
+  // 6. Retornar respuesta mapeada
   return {
     token,
     usuario: {
@@ -58,7 +58,7 @@ const login = async ({ usuario, password }) => {
 };
 
 const register = async ({ nombre_completo, usuario, email, password }) => {
-  // 1. Verificar existencia en public.usuario
+  // 1. Verificar existencia
   const checkQuery = `
     SELECT id FROM public.usuario 
     WHERE usuario = $1 OR email = $2 
@@ -72,12 +72,12 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
 
   // 2. Cifrar la contraseña
   const salt = await bcrypt.genSalt(10);
-  const passwordHash = await bcrypt.hash(password, salt);
+  const password_hash = await bcrypt.hash(password, salt);
 
-  // 3. Insertar nuevo registro en public.usuario
+  // 3. Insertar usando 'password_hash' como exige tu tabla
   const insertQuery = `
-    INSERT INTO public.usuario (nombre_completo, usuario, email, password, created_at)
-    VALUES ($1, $2, $3, $4, NOW())
+    INSERT INTO public.usuario (nombre_completo, usuario, email, password_hash, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, NOW(), NOW())
     RETURNING id, usuario, email, nombre_completo, token_version, created_at;
   `;
   
@@ -85,7 +85,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
     nombre_completo,
     usuario,
     email,
-    passwordHash,
+    password_hash,
   ]);
 
   const user = rows[0];
