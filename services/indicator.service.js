@@ -1,5 +1,5 @@
 /**
- * Service: Cartera Indicadores
+ * Service: Indicadores
  * Responsabilidad: Persistencia, consultas agregadas e interacción con la BD.
  */
 
@@ -15,7 +15,7 @@ const saveIndicator = async (usuarioId, indicatorData) => {
   const { nombre, valor, tipo } = indicatorData;
 
   const query = `
-    INSERT INTO public.cartera_indicadores (nombre, valor, tipo, created_at, usuario_id)
+    INSERT INTO public.indicadores (nombre, valor, tipo, created_at, usuario_id)
     VALUES ($1, $2, $3, NOW(), $4::uuid)
     RETURNING id, nombre, valor::FLOAT, tipo, created_at, usuario_id;
   `;
@@ -34,7 +34,7 @@ const saveIndicator = async (usuarioId, indicatorData) => {
 const getAllIndicators = async (usuarioId) => {
   const query = `
     SELECT id, nombre, valor::FLOAT, tipo, created_at, usuario_id
-    FROM public.cartera_indicadores 
+    FROM public.indicadores 
     WHERE usuario_id = $1::uuid
     ORDER BY created_at DESC;
   `;
@@ -62,12 +62,12 @@ const getIndicatorWithLogros = async (id, usuarioId) => {
       l.nombre AS logro_nombre,
       l.puntos::INTEGER AS logro_puntos,
       l.completado AS logro_completado,
-      l.creado_at AS logro_created_at,
-      DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
-    FROM public.cartera_indicadores i
-    LEFT JOIN public.cartera_logros l ON i.id = l.indicador_id
+      l.created_at AS logro_created_at,
+      DATE_TRUNC('week', l.created_at)::DATE AS semana_inicio
+    FROM public.indicadores i
+    LEFT JOIN public.logro l ON i.id = l.indicador_id
     WHERE i.id = $1 AND i.usuario_id = $2::uuid
-    ORDER BY semana_inicio DESC, l.creado_at DESC;
+    ORDER BY semana_inicio DESC, l.created_at DESC;
   `;
 
   const { rows } = await pool.query(query, [id, usuarioId]);
