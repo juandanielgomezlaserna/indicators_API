@@ -1,21 +1,36 @@
 /**
- * Routes: Cartera Metas
- * Path Base: /api/v1/cartera-metas
+ * Router: Cartera Metas
+ * Responsabilidad: Definición de endpoints HTTP, protección con authMiddleware (JWT)
+ * y enrutamiento hacia la capa de controladores.
  */
 
 const express = require('express');
 const router = express.Router();
-
 const carteraMetaController = require('../controllers/carteraMeta.controller');
-const { validateCreateMeta, validateDepositarMeta } = require('../validators/carteraMeta.validator');
+const { authMiddleware } = require('../middlewares/auth.middleware');
 
-// Crear meta de ahorro
-router.post('/', validateCreateMeta, carteraMetaController.createMeta);
+// Proteger todas las rutas de este módulo con autenticación JWT
+router.use(authMiddleware);
 
-// Depositar dinero a una meta
-router.post('/:id/depositar', validateDepositarMeta, carteraMetaController.depositarAMeta);
+/**
+ * @route   POST /api/v1/cartera/metas
+ * @desc    Crea una nueva meta de ahorro asociada al usuario autenticado
+ * @access  Private (JWT)
+ */
+router.post('/', carteraMetaController.createMeta);
 
-// Listar metas por usuario
-router.get('/:usuario', carteraMetaController.getMetas);
+/**
+ * @route   POST /api/v1/cartera/metas/:id/deposito
+ * @desc    Deposita dinero a una meta de ahorro transfiriendo fondos desde un bolsillo
+ * @access  Private (JWT)
+ */
+router.post('/:id/deposito', carteraMetaController.depositarAMeta);
+
+/**
+ * @route   GET /api/v1/cartera/metas
+ * @desc    Obtiene el listado de metas de ahorro del usuario autenticado
+ * @access  Private (JWT)
+ */
+router.get('/', carteraMetaController.getMetas);
 
 module.exports = router;

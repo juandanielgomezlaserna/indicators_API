@@ -1,15 +1,17 @@
 /**
  * Service: Cartera Recurrentes
- * Responsabilidad: Operaciones en PostgreSQL (Neon DB).
+ * Responsabilidad: Operaciones en PostgreSQL (Neon DB) con soporte UUID.
  */
 
 const { pool } = require('../config/db');
 
 /**
  * Registrar una transacción recurrente
+ * 
+ * @param {string} usuarioId - UUID del usuario autenticado (extraído del JWT)
+ * @param {Object} data - Datos de la regla recurrente
  */
-const createRecurrente = async ({
-  usuario,
+const createRecurrente = async (usuarioId, {
   descripcion,
   monto,
   tipo,
@@ -22,14 +24,14 @@ const createRecurrente = async ({
 }) => {
   const query = `
     INSERT INTO public.cartera_recurrentes (
-      usuario, descripcion, monto, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo
+      usuario_id, descripcion, monto, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    RETURNING id, usuario, descripcion, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
+    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::uuid, $10)
+    RETURNING id, usuario_id, descripcion, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
   `;
 
   const values = [
-    usuario,
+    usuarioId,
     descripcion,
     monto,
     tipo,
@@ -47,58 +49,69 @@ const createRecurrente = async ({
 
 /**
  * Obtener recurrentes por usuario con el nombre del bolsillo asociado
+ * 
+ * @param {string} usuarioId - UUID del usuario autenticado
  */
-const getRecurrentesByUsuario = async (usuario) => {
+const getRecurrentesByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
-      r.id, r.usuario, r.descripcion, r.monto::FLOAT, r.tipo, 
+      r.id, r.usuario_id, r.descripcion, r.monto::FLOAT, r.tipo, 
       r.categoria, r.frecuencia, r.dia_pago, r.proxima_ejecucion, 
       r.bolsillo_id, b.nombre AS bolsillo_nombre, r.activo
     FROM public.cartera_recurrentes r
     INNER JOIN public.cartera_bolsillos b ON r.bolsillo_id = b.id
-    WHERE r.usuario = $1
+    WHERE r.usuario_id = $1::uuid
     ORDER BY r.proxima_ejecucion ASC;
   `;
-  const { rows } = await pool.query(query, [usuario]);
+  const { rows } = await pool.query(query, [usuarioId]);
   return rows;
 };
 
 /**
  * Alternar el estado activo/inactivo de una transacción recurrente
+ * 
+ * @param {string} id - ID de la transacción recurrente
+ * @param {string} usuarioId - UUID del usuario autenticado
  */
-const toggleEstadoRecurrente = async (id, usuario) => {
+const toggleEstadoRecurrente = async (id, usuarioId) => {
   const query = `
     UPDATE public.cartera_recurrentes
     SET activo = NOT activo
-    WHERE id = $1 AND usuario = $2
+    WHERE id = $1 AND usuario_id = $2::uuid
     RETURNING id, descripcion, activo;
   `;
-  const { rows } = await pool.query(query, [id, usuario]);
+  const { rows } = await pool.query(query, [id, usuarioId]);
   
   if (rows.length === 0) {
-    const error = new Error('Transacción recurrente no encontrada o no pertenece al usuario');
+    const error = new Error('Transacción recurrente no encontrada o no pertenece al usuario.');
     error.statusCode = 404;
     throw error;
   }
   return rows[0];
 };
 
-const ejecutarRecurrente = async (id, usuario) => {
+/**
+ * Ejecuta una transacción recurrente descontando del bolsillo y creando el movimiento
+ * 
+ * @param {string} id - ID de la regla recurrente
+ * @param {string} usuarioId - UUID del usuario autenticado
+ */
+const ejecutarRecurrente = async (id, usuarioId) => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener la transacción recurrente
+    // 1. Obtener la transacción recurrente con bloqueo de fila
     const recurrenteQuery = `
       SELECT * FROM public.cartera_recurrentes 
-      WHERE id = $1 AND usuario = $2 AND activo = true
+      WHERE id = $1 AND usuario_id = $2::uuid AND activo = true
       FOR UPDATE;
     `;
-    const { rows } = await client.query(recurrenteQuery, [id, usuario]);
+    const { rows } = await client.query(recurrenteQuery, [id, usuarioId]);
 
     if (rows.length === 0) {
-      const error = new Error('La transacción recurrente no existe o está inactiva');
+      const error = new Error('La transacción recurrente no existe, no está activa o no pertenece al usuario.');
       error.statusCode = 404;
       throw error;
     }
@@ -110,13 +123,13 @@ const ejecutarRecurrente = async (id, usuario) => {
     const ajusteSaldoQuery = `
       UPDATE public.cartera_bolsillos 
       SET balance = balance ${esGasto ? '-' : '+'} $1 
-      WHERE id = $2 AND usuario = $3
-      RETURNING balance;
+      WHERE id = $2::uuid AND usuario_id = $3::uuid
+      RETURNING balance::FLOAT;
     `;
-    const bolsilloRes = await client.query(ajusteSaldoQuery, [rec.monto, rec.bolsillo_id, usuario]);
+    const bolsilloRes = await client.query(ajusteSaldoQuery, [rec.monto, rec.bolsillo_id, usuarioId]);
 
     if (bolsilloRes.rows.length === 0) {
-      const error = new Error('El bolsillo asociado no fue encontrado');
+      const error = new Error('El bolsillo asociado no fue encontrado o no pertenece al usuario.');
       error.statusCode = 404;
       throw error;
     }
@@ -124,20 +137,21 @@ const ejecutarRecurrente = async (id, usuario) => {
     // 3. Crear el Movimiento Histórico vinculando el bolsillo correspondiente
     const movimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, 
+        usuario_id, 
         tipo, 
         monto, 
         categoria, 
         descripcion, 
+        bolsillo_id,
         bolsillo_origen_id, 
         fecha_transaccion
       )
-      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $6::uuid, CURRENT_TIMESTAMP)
       RETURNING id;
     `;
 
     await client.query(movimientoQuery, [
-      usuario,
+      usuarioId,
       rec.tipo,
       rec.monto,
       rec.categoria,
@@ -158,10 +172,10 @@ const ejecutarRecurrente = async (id, usuario) => {
     const updateFechaQuery = `
       UPDATE public.cartera_recurrentes
       SET proxima_ejecucion = proxima_ejecucion + ${intervaloSQL}
-      WHERE id = $1
+      WHERE id = $1 AND usuario_id = $2::uuid
       RETURNING id, descripcion, proxima_ejecucion;
     `;
-    const updateRes = await client.query(updateFechaQuery, [id]);
+    const updateRes = await client.query(updateFechaQuery, [id, usuarioId]);
 
     await client.query('COMMIT');
 
@@ -178,18 +192,25 @@ const ejecutarRecurrente = async (id, usuario) => {
   }
 };
 
-const updateRecurrente = async (id, datosActualizados) => {
+/**
+ * Actualizar dinámicamente un registro recurrente
+ * 
+ * @param {string} id - ID de la regla recurrente
+ * @param {string} usuarioId - UUID del usuario autenticado
+ * @param {Object} datosActualizados - Llaves y valores a actualizar
+ */
+const updateRecurrente = async (id, usuarioId, datosActualizados) => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Verificar si el registro existe
-    const checkQuery = `SELECT id FROM public.cartera_recurrentes WHERE id = $1;`;
-    const checkRes = await client.query(checkQuery, [id]);
+    // 1. Verificar si el registro existe y pertenece al usuario
+    const checkQuery = `SELECT id FROM public.cartera_recurrentes WHERE id = $1 AND usuario_id = $2::uuid;`;
+    const checkRes = await client.query(checkQuery, [id, usuarioId]);
 
     if (checkRes.rows.length === 0) {
-      const error = new Error('La transacción recurrente especificada no existe.');
+      const error = new Error('La transacción recurrente especificada no existe o no pertenece al usuario.');
       error.statusCode = 404;
       throw error;
     }
@@ -212,14 +233,19 @@ const updateRecurrente = async (id, datosActualizados) => {
       paramIndex++;
     });
 
-    values.push(id); // Último parámetro para el WHERE id = $X
+    values.push(id); // Parámetro para WHERE id = $X
+    const idParamIndex = paramIndex;
+    paramIndex++;
+
+    values.push(usuarioId); // Parámetro para WHERE usuario_id = $Y::uuid
+    const usuarioParamIndex = paramIndex;
 
     const updateQuery = `
       UPDATE public.cartera_recurrentes
       SET ${setClauses.join(', ')}
-      WHERE id = $${paramIndex}
+      WHERE id = $${idParamIndex} AND usuario_id = $${usuarioParamIndex}::uuid
       RETURNING 
-        id, usuario, tipo, monto::FLOAT, categoria, frecuencia, 
+        id, usuario_id, tipo, monto::FLOAT, categoria, frecuencia, 
         dia_pago, bolsillo_id, proxima_ejecucion, activo, descripcion;
     `;
 

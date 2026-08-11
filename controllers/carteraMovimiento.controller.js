@@ -1,41 +1,79 @@
 /**
  * Controller: Cartera Movimientos
- * Responsabilidad: Recibir la petición limpia, invocar el servicio y responder HTTP.
+ * Responsabilidad: Manejo de peticiones/respuestas HTTP, sanitización de entradas con Zod
+ * y extracción del contexto de autenticación (JWT).
  */
 
+const { z } = require('zod');
 const carteraMovimientoService = require('../services/carteraMovimiento.service');
 
+// -----------------------------------------------------------------------------
+// Validadores (Zod)
+// -----------------------------------------------------------------------------
+
 /**
- * Registra un nuevo movimiento (Gasto / Ingreso)
- * @route POST /api/v1/cartera/movimientos
+ * Esquema de validación para registrar un movimiento (Gasto / Ingreso)
+ */
+const createMovimientoSchema = z.object({
+  bolsillo_id: z.string().uuid({ message: 'El bolsillo_id debe ser un UUID v4 válido.' }),
+  tipo: z.enum(['ingreso', 'gasto'], { message: "El tipo debe ser 'ingreso' o 'gasto'." }),
+  monto: z.number().positive({ message: 'El monto del movimiento debe ser mayor a 0.' }),
+  categoria: z.string().min(1, { message: 'La categoría es obligatoria.' }).trim(),
+  descripcion: z.string().trim().optional()
+});
+
+/**
+ * Esquema de validación para asegurar la integridad del UUID del usuario autenticado
+ */
+const usuarioIdSchema = z.string().uuid({ message: 'El ID del usuario autenticado debe ser un UUID v4 válido.' });
+
+// -----------------------------------------------------------------------------
+// Handlers / Controllers
+// -----------------------------------------------------------------------------
+
+/**
+ * Registra un nuevo movimiento de ingreso o gasto asociado al usuario autenticado.
+ * 
+ * Route: POST /api/v1/cartera/movimientos
+ * Access: Private (authMiddleware)
  */
 const createMovimiento = async (req, res, next) => {
   try {
-    // Los datos en req.body YA vienen sanitizados y validados por el Middleware Validator
-    const result = await carteraMovimientoService.createMovimiento(req.body);
+    // 1. Validar la identidad del usuario extraída del token JWT (req.user)
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
 
+    // 2. Validar y sanitizar la carga útil (payload)
+    const validatedBody = createMovimientoSchema.parse(req.body);
+
+    // 3. Invocar lógica de negocio en la capa Service
+    const result = await carteraMovimientoService.createMovimiento(usuarioId, validatedBody);
+
+    // 4. Respuesta HTTP 201 Created estandarizada
     return res.status(201).json({
       status: 'success',
-      message: 'Movimiento registrado correctamente',
+      message: 'Movimiento registrado correctamente.',
       data: result
     });
   } catch (error) {
-    // Si el Service detecta un error de negocio (ej: saldo insuficiente), 
-    // lo lanza y cae aquí para enviarlo al errorHandler global
     next(error);
   }
 };
 
 /**
- * Obtiene los movimientos de un usuario
- * @route GET /api/v1/cartera/movimientos/:usuario
+ * Obtiene el historial de movimientos de ingreso/gasto del usuario autenticado.
+ * 
+ * Route: GET /api/v1/cartera/movimientos
+ * Access: Private (authMiddleware)
  */
 const getMovimientos = async (req, res, next) => {
   try {
-    const { usuario } = req.params;
+    // 1. Extraer y validar el UUID del usuario autenticado
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
 
-    const movimientos = await carteraMovimientoService.getMovimientosByUsuario(usuario);
+    // 2. Consultar historial en la capa de servicios
+    const movimientos = await carteraMovimientoService.getMovimientosByUsuario(usuarioId);
 
+    // 3. Respuesta HTTP 200 OK estandarizada
     return res.status(200).json({
       status: 'success',
       results: movimientos.length,
@@ -48,5 +86,6 @@ const getMovimientos = async (req, res, next) => {
 
 module.exports = {
   createMovimiento,
-  getMovimientos
+  getMovimientos,
+  createMovimientoSchema
 };

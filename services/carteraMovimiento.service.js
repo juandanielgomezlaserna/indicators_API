@@ -5,10 +5,7 @@
 
 const { pool } = require('../config/db');
 
-/**
- * Registra un movimiento (Gasto o Ingreso) y actualiza el saldo del bolsillo impactado.
- */
-const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripcion, usuario }) => {
+const createMovimiento = async (usuarioId, { bolsillo_id, tipo, monto, categoria, descripcion }) => {
   const client = await pool.connect();
 
   try {
@@ -18,9 +15,9 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     const bolsilloQuery = `
       SELECT id, balance::FLOAT 
       FROM public.cartera_bolsillos 
-      WHERE id = $1 AND usuario = $2;
+      WHERE id = $1::uuid AND usuario_id = $2::uuid;
     `;
-    const bolsilloRes = await client.query(bolsilloQuery, [bolsillo_id, usuario]);
+    const bolsilloRes = await client.query(bolsilloQuery, [bolsillo_id, usuarioId]);
 
     if (bolsilloRes.rows.length === 0) {
       const error = new Error('El bolsillo especificado no existe o no pertenece al usuario.');
@@ -31,7 +28,7 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     const balanceActual = bolsilloRes.rows[0].balance;
     const esGasto = tipo.toLowerCase() === 'gasto';
     const montoNumerico = Number(monto);
-    
+
     const nuevoBalance = esGasto 
       ? balanceActual - montoNumerico 
       : balanceActual + montoNumerico;
@@ -43,31 +40,32 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
     // 3. Insertar el movimiento en cartera_movimientos
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, NOW())
       RETURNING 
-        id, usuario, tipo, monto::FLOAT, categoria, descripcion, 
-        bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
+        id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, 
+        bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
     `;
-    
+
     const movimientoRes = await client.query(insertMovimientoQuery, [
-      usuario,
+      usuarioId,
       tipo.toLowerCase(),
       montoNumerico,
       categoria,
       descripcion || null,
+      bolsillo_id,
       bolsilloOrigenId,
       bolsilloDestinoId
     ]);
 
-    // 4. Actualizar el saldo del bolsillo (Removido 'updated_at' para coincidir con la BD)
+    // 4. Actualizar el saldo del bolsillo
     const updateBolsilloQuery = `
       UPDATE public.cartera_bolsillos
       SET balance = $1
-      WHERE id = $2 AND usuario = $3;
+      WHERE id = $2::uuid AND usuario_id = $3::uuid;
     `;
-    await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuario]);
+    await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuarioId]);
 
     await client.query('COMMIT');
 
@@ -86,8 +84,10 @@ const createMovimiento = async ({ bolsillo_id, tipo, monto, categoria, descripci
 
 /**
  * Obtiene el historial reciente mapeando orígenes y destinos de bolsillos
+ * 
+ * @param {string} usuarioId - UUID del usuario autenticado
  */
-const getMovimientosByUsuario = async (usuario) => {
+const getMovimientosByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
       m.id, 
@@ -96,17 +96,17 @@ const getMovimientosByUsuario = async (usuario) => {
       m.categoria, 
       m.descripcion, 
       m.fecha_transaccion AS fecha,
-      COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id) AS bolsillo_id,
+      COALESCE(m.bolsillo_id, m.bolsillo_origen_id, m.bolsillo_destino_id) AS bolsillo_id,
       b.nombre AS bolsillo_nombre
     FROM public.cartera_movimientos m
     LEFT JOIN public.cartera_bolsillos b 
-      ON b.id = COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id)
-    WHERE m.usuario = $1
+      ON b.id = COALESCE(m.bolsillo_id, m.bolsillo_origen_id, m.bolsillo_destino_id)
+    WHERE m.usuario_id = $1::uuid
     ORDER BY m.fecha_transaccion DESC
     LIMIT 20;
   `;
 
-  const { rows } = await pool.query(query, [usuario]);
+  const { rows } = await pool.query(query, [usuarioId]);
   return rows;
 };
 

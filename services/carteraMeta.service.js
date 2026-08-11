@@ -5,29 +5,30 @@
 
 const { pool } = require('../config/db');
 
-/**
- * Crear nueva meta de ahorro
- */
-const createMeta = async ({ usuario, nombre, monto_objetivo, monto_actual, bolsillo_origen_id }) => {
+const createMeta = async (usuarioId, { nombre, monto_objetivo, monto_actual, bolsillo_origen_id }) => {
   const query = `
     INSERT INTO public.cartera_metas (
-      usuario, nombre, monto_objetivo, monto_actual, bolsillo_origen_id, completado, created_at
+      usuario_id, nombre, monto_objetivo, monto_actual, bolsillo_origen_id, completado, created_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, NOW())
-    RETURNING id, usuario, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, bolsillo_origen_id, completado, created_at;
+    VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
+    RETURNING id, usuario_id, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, bolsillo_origen_id, completado, created_at;
   `;
 
   const esCompletado = (monto_actual || 0) >= monto_objetivo;
-  const values = [usuario, nombre, monto_objetivo, monto_actual || 0, bolsillo_origen_id || null, esCompletado];
-  
+  const values = [usuarioId, nombre, monto_objetivo, monto_actual || 0, bolsillo_origen_id || null, esCompletado];
+
   const { rows } = await pool.query(query, values);
   return rows[0];
 };
 
 /**
  * Depositar saldo de un bolsillo hacia la meta (Transacción ACID)
+ * 
+ * @param {string} metaId - ID o UUID de la meta
+ * @param {string} usuarioId - UUID del usuario autenticado
+ * @param {Object} data - Datos del depósito (bolsillo_id, monto, descripcion)
  */
-const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcion }) => {
+const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripcion }) => {
   const client = await pool.connect();
 
   try {
@@ -37,8 +38,8 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
     const metaRes = await client.query(
       `SELECT id, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, completado 
        FROM public.cartera_metas 
-       WHERE id = $1 AND usuario = $2;`,
-      [meta_id, usuario]
+       WHERE id = $1 AND usuario_id = $2::uuid;`,
+      [metaId, usuarioId]
     );
 
     if (metaRes.rows.length === 0) {
@@ -51,8 +52,8 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
 
     // 2. Verificar existencia y saldo disponible del bolsillo de origen
     const bolsilloRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario = $2;`,
-      [bolsillo_id, usuario]
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      [bolsillo_id, usuarioId]
     );
 
     if (bolsilloRes.rows.length === 0) {
@@ -69,7 +70,7 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
       throw error;
     }
 
-    // 3. Calular nuevos montos
+    // 3. Calcular nuevos montos
     const nuevoMontoActualMeta = meta.monto_actual + monto;
     const nuevoBalanceBolsillo = bolsillo.balance - monto;
     const estaCompletado = nuevoMontoActualMeta >= meta.monto_objetivo;
@@ -78,28 +79,28 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
     await client.query(
       `UPDATE public.cartera_metas 
        SET monto_actual = $1, completado = $2 
-       WHERE id = $3;`,
-      [nuevoMontoActualMeta, estaCompletado, meta_id]
+       WHERE id = $3 AND usuario_id = $4::uuid;`,
+      [nuevoMontoActualMeta, estaCompletado, metaId, usuarioId]
     );
 
     // 5. Descontar del bolsillo
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2;`,
-      [nuevoBalanceBolsillo, bolsillo_id]
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      [nuevoBalanceBolsillo, bolsillo_id, usuarioId]
     );
 
     // 6. Registrar movimiento tipo 'ahorro'
     const detalleMovimiento = descripcion || `Ahorro para meta: ${meta.nombre}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, tipo, monto, categoria, descripcion, bolsillo_origen_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, fecha_transaccion
       )
-      VALUES ($1, 'gasto', $2, 'Ahorro / Meta', $3, $4, NOW())
-      RETURNING id, usuario, tipo, monto::FLOAT, categoria, descripcion, fecha_transaccion AS fecha;
+      VALUES ($1::uuid, 'gasto', $2, 'Ahorro / Meta', $3, $4::uuid, NOW())
+      RETURNING id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, fecha_transaccion AS fecha;
     `;
 
     const movimientoRes = await client.query(insertMovimientoQuery, [
-      usuario,
+      usuarioId,
       monto,
       detalleMovimiento,
       bolsillo_id
@@ -108,7 +109,7 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
     await client.query('COMMIT');
 
     return {
-      meta_id,
+      meta_id: metaId,
       monto_depositado: monto,
       monto_actual: nuevoMontoActualMeta,
       monto_objetivo: meta.monto_objetivo,
@@ -126,21 +127,23 @@ const depositarAMeta = async (meta_id, { usuario, bolsillo_id, monto, descripcio
 };
 
 /**
- * Obtener metas del usuario
+ * Obtener metas del usuario autenticado
+ * 
+ * @param {string} usuarioId - UUID del usuario autenticado
  */
-const getMetasByUsuario = async (usuario) => {
+const getMetasByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
-      m.id, m.usuario, m.nombre, 
+      m.id, m.usuario_id, m.nombre, 
       m.monto_objetivo::FLOAT, m.monto_actual::FLOAT, 
       m.bolsillo_origen_id, b.nombre AS bolsillo_nombre,
       m.completado, m.created_at
     FROM public.cartera_metas m
     LEFT JOIN public.cartera_bolsillos b ON m.bolsillo_origen_id = b.id
-    WHERE m.usuario = $1
+    WHERE m.usuario_id = $1::uuid
     ORDER BY m.completado ASC, m.created_at DESC;
   `;
-  const { rows } = await pool.query(query, [usuario]);
+  const { rows } = await pool.query(query, [usuarioId]);
   return rows;
 };
 

@@ -7,21 +7,31 @@ const { z } = require('zod');
 
 // Esquema para crear deuda
 const createDeudaSchema = z.object({
-  usuario: z.string({ required_error: 'El usuario es obligatorio' }).min(1),
-  acreedor: z.string({ required_error: 'El acreedor es obligatorio' }).max(100),
+  acreedor: z
+    .string({ required_error: 'El acreedor es obligatorio' })
+    .min(1, 'El nombre del acreedor no puede estar vacío')
+    .max(100, 'El nombre del acreedor es demasiado largo'),
   tipo: z.string().optional().default('no_obligatoria'),
-  monto_inicial: z.coerce.number({ invalid_type_error: 'El monto debe ser un número' }).positive(),
-  monto_pendiente: z.coerce.number().positive().optional(),
-  fecha_limite_pago: z.string().optional().nullable()
+  monto_inicial: z.coerce
+    .number({ invalid_type_error: 'El monto inicial debe ser un número' })
+    .positive('El monto inicial debe ser un valor positivo'),
+  monto_pendiente: z.coerce
+    .number({ invalid_type_error: 'El monto pendiente debe ser un número' })
+    .positive('El monto pendiente debe ser un valor positivo')
+    .optional(),
+  fecha_limite_pago: z.string().datetime().optional().nullable(),
 });
 
 // Esquema para realizar un abono a la deuda
 const abonarDeudaSchema = z.object({
-  usuario: z.string({ required_error: 'El usuario es obligatorio' }).min(1),
-  bolsillo_id: z.coerce.number({ required_error: 'El bolsillo_id es obligatorio' }),
-  monto: z.coerce.number({ required_error: 'El monto a abonar es obligatorio' }).positive(),
+  bolsillo_id: z
+    .string({ required_error: 'El bolsillo_id es obligatorio' })
+    .uuid('El bolsillo_id debe ser un UUID válido'),
+  monto: z.coerce
+    .number({ required_error: 'El monto a abonar es obligatorio' })
+    .positive('El monto debe ser un valor positivo'),
   categoria: z.string().optional().default('Pago Deuda'),
-  descripcion: z.string().optional().nullable()
+  descripcion: z.string().optional().nullable(),
 });
 
 const validateCreateDeuda = (req, res, next) => {
@@ -32,7 +42,7 @@ const validateCreateDeuda = (req, res, next) => {
     return res.status(400).json({
       status: 'error',
       message: 'Datos de entrada inválidos',
-      errors: error.errors
+      errors: error.errors,
     });
   }
 };
@@ -44,13 +54,13 @@ const validateAbonarDeuda = (req, res, next) => {
   } catch (error) {
     return res.status(400).json({
       status: 'error',
-      message: 'Datos de abonado inválidos',
-      errors: error.errors
+      message: 'Datos de abono inválidos',
+      errors: error.errors,
     });
   }
 };
 
 module.exports = {
   validateCreateDeuda,
-  validateAbonarDeuda
+  validateAbonarDeuda,
 };

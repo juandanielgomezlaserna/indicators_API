@@ -1,21 +1,36 @@
 /**
- * Routes: Cartera Deudas
- * Path Base: /api/v1/cartera-deudas
+ * Router: Cartera Deudas
+ * Responsabilidad: Definición de endpoints HTTP, aplicación de middlewares de autenticación (JWT)
+ * y enrutamiento hacia la capa de controladores.
  */
 
 const express = require('express');
 const router = express.Router();
-
 const carteraDeudaController = require('../controllers/carteraDeuda.controller');
-const { validateCreateDeuda, validateAbonarDeuda } = require('../validators/carteraDeuda.validator');
+const { authMiddleware } = require('../middlewares/auth.middleware');
 
-// Registrar una nueva deuda
-router.post('/', validateCreateDeuda, carteraDeudaController.createDeuda);
+// Proteger todas las rutas de este módulo con autenticación JWT
+router.use(authMiddleware);
 
-// Abonar a una deuda específica (descuenta del bolsillo e inserta movimiento)
-router.post('/:id/abonar', validateAbonarDeuda, carteraDeudaController.abonarDeuda);
+/**
+ * @route   POST /api/v1/cartera/deudas
+ * @desc    Registra una nueva deuda asociada al usuario autenticado
+ * @access  Private (JWT)
+ */
+router.post('/', carteraDeudaController.createDeuda);
 
-// Obtener todas las deudas del usuario
-router.get('/:usuario', carteraDeudaController.getDeudas);
+/**
+ * @route   POST /api/v1/cartera/deudas/:id/abono
+ * @desc    Abona un monto a una deuda específica descontando del bolsillo indicado
+ * @access  Private (JWT)
+ */
+router.post('/:id/abono', carteraDeudaController.abonarDeuda);
+
+/**
+ * @route   GET /api/v1/cartera/deudas
+ * @desc    Obtiene el listado de deudas pertenecientes al usuario autenticado
+ * @access  Private (JWT)
+ */
+router.get('/', carteraDeudaController.getDeudas);
 
 module.exports = router;

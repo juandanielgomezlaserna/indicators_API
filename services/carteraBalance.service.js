@@ -3,22 +3,24 @@ const { pool } = require('../config/db');
 /**
  * Service: Obtener Resumen de Balance para Dashboard
  * Filtra únicamente los compromisos PENDIENTES de la quincena actual.
+ * 
+ * @param {string} usuarioId - UUID del usuario autenticado (extraído del JWT)
  */
-const getResumenBalanceByUsuario = async (usuario) => {
+const getResumenBalanceByUsuario = async (usuarioId) => {
   const query = `
     WITH 
     -- 1. Dinero total en bolsillos operativos (excluyendo Alcancía)
     bolsillos_liquidos AS (
       SELECT COALESCE(SUM(balance::FLOAT), 0) AS total_disponible
       FROM public.cartera_bolsillos
-      WHERE usuario = $1 
+      WHERE usuario_id = $1::uuid 
         AND LOWER(nombre::text) NOT IN ('alcancia', 'alcancía')
     ),
     -- 2. Recurrentes Mensuales PENDIENTES en la quincena actual (proxima_ejecucion <= fin de quincena)
     recurrentes_mensuales AS (
       SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
-      WHERE usuario = $1 
+      WHERE usuario_id = $1::uuid 
         AND activo = true 
         AND frecuencia::text = 'mensual' 
         AND tipo::text = 'gasto'
@@ -33,7 +35,7 @@ const getResumenBalanceByUsuario = async (usuario) => {
     recurrentes_quincenales AS (
       SELECT COALESCE(SUM(monto::FLOAT), 0) AS total
       FROM public.cartera_recurrentes
-      WHERE usuario = $1 
+      WHERE usuario_id = $1::uuid 
         AND activo = true 
         AND frecuencia::text = 'quincenal' 
         AND tipo::text = 'gasto'
@@ -51,7 +53,7 @@ const getResumenBalanceByUsuario = async (usuario) => {
     FROM bolsillos_liquidos bl, recurrentes_mensuales rm, recurrentes_quincenales rq;
   `;
 
-  const { rows } = await pool.query(query, [usuario]);
+  const { rows } = await pool.query(query, [usuarioId]);
   const data = rows[0];
 
   const dineroDisponible = Number(data.total_disponible);
@@ -69,6 +71,7 @@ const getResumenBalanceByUsuario = async (usuario) => {
 
   // Debug en consola
   console.log('=== DEBUG BALANCE CORREGIDO ===');
+  console.log(`Usuario UUID: ${usuarioId}`);
   console.log(`Disponible: $${dineroDisponible}`);
   console.log(`Gasto Mensual PENDIENTE: $${gastoMensualPendiente}`);
   console.log(`Gasto Quincenal PENDIENTE: $${gastoQuincenalPendiente}`);

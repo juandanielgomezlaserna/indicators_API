@@ -4,13 +4,12 @@ const { z } = require('zod');
  * Esquema de validación estricto para Movimientos
  */
 const movimientoSchema = z.object({
-  bolsillo_id: z.coerce
-    .number({ invalid_type_error: "El bolsillo_id debe ser un número válido." })
-    .int("El bolsillo_id debe ser un número entero.")
-    .positive("El bolsillo_id debe ser válido."),
+  bolsillo_id: z
+    .string({ required_error: 'El bolsillo_id es obligatorio.' })
+    .uuid('El bolsillo_id debe ser un UUID válido.'),
 
   tipo: z
-    .string({ required_error: "El tipo de movimiento es obligatorio." })
+    .string({ required_error: 'El tipo de movimiento es obligatorio.' })
     .transform((val) => val.toLowerCase())
     .pipe(
       z.enum(['ingreso', 'gasto'], {
@@ -19,20 +18,15 @@ const movimientoSchema = z.object({
     ),
 
   monto: z.coerce
-    .number({ invalid_type_error: "El monto debe ser un valor numérico." })
-    .positive("El monto debe ser un número mayor a 0."),
+    .number({ invalid_type_error: 'El monto debe ser un valor numérico.' })
+    .positive('El monto debe ser un número mayor a 0.'),
 
   categoria: z
-    .string({ required_error: "La categoría es requerida." })
+    .string({ required_error: 'La categoría es requerida.' })
     .trim()
-    .min(1, "La categoría no puede estar vacía."),
+    .min(1, 'La categoría no puede estar vacía.'),
 
-  descripcion: z.string().trim().optional(),
-
-  usuario: z
-    .string({ required_error: "El campo usuario es obligatorio." })
-    .trim()
-    .min(1, "El usuario no puede estar vacío.")
+  descripcion: z.string().trim().optional().nullable(),
 });
 
 /**
@@ -54,7 +48,7 @@ const validateMovimiento = (req, res, next) => {
         })),
       });
     }
-    
+
     next(error);
   }
 };

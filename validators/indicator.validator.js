@@ -1,25 +1,46 @@
 const { z } = require('zod');
 
-// Tu esquema definido
+/**
+ * Esquema de validación estricto para Indicadores
+ */
 const indicatorSchema = z.object({
-  nombre: z.string().min(1, "El nombre es obligatorio"),
-  valor: z.number({ required_error: "El valor debe ser un número" }),
-  tipo: z.string().min(1, "El tipo es obligatorio"),
-  usuario: z.string().min(1, "El usuario es obligatorio"),
+  nombre: z
+    .string({ required_error: 'El nombre es obligatorio.' })
+    .trim()
+    .min(1, 'El nombre no puede estar vacío.')
+    .max(100, 'El nombre es demasiado largo.'),
+
+  valor: z.coerce
+    .number({ required_error: 'El valor debe ser un número.', invalid_type_error: 'El valor debe ser numérico.' }),
+
+  tipo: z
+    .string({ required_error: 'El tipo es obligatorio.' })
+    .trim()
+    .min(1, 'El tipo no puede estar vacío.'),
 });
 
+/**
+ * Middleware para validar el body de la petición
+ */
 const validateIndicator = (req, res, next) => {
-    try {
-        // Validamos el body
-        indicatorSchema.parse(req.body);
-        next(); // Si es válido, pasa al Controller
-    } catch (error) {
-        // Si falla, enviamos el error de Zod (400 Bad Request)
-        return res.status(400).json({
-            status: 'error',
-            errors: error.errors.map(err => ({ field: err.path[0], message: err.message }))
-        });
+  try {
+    // parse() valida y limpia req.body dejando solo los campos definidos en el esquema
+    req.body = indicatorSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Error de validación en los datos del indicador',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
     }
+
+    next(error);
+  }
 };
 
 module.exports = { validateIndicator };

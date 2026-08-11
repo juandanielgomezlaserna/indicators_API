@@ -5,7 +5,7 @@
 
 const { pool } = require('../config/db');
 
-const realizarTransferencia = async ({ usuario, bolsillo_origen_id, bolsillo_destino_id, monto, descripcion }) => {
+const realizarTransferencia = async (usuarioId, { bolsillo_origen_id, bolsillo_destino_id, monto, descripcion }) => {
   const client = await pool.connect();
 
   try {
@@ -13,8 +13,8 @@ const realizarTransferencia = async ({ usuario, bolsillo_origen_id, bolsillo_des
 
     // 1. Obtener y validar bolsillo de origen
     const origenRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario = $2;`,
-      [bolsillo_origen_id, usuario]
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      [bolsillo_origen_id, usuarioId]
     );
 
     if (origenRes.rows.length === 0) {
@@ -34,8 +34,8 @@ const realizarTransferencia = async ({ usuario, bolsillo_origen_id, bolsillo_des
 
     // 2. Obtener y validar bolsillo de destino
     const destinoRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario = $2;`,
-      [bolsillo_destino_id, usuario]
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      [bolsillo_destino_id, usuarioId]
     );
 
     if (destinoRes.rows.length === 0) {
@@ -46,32 +46,32 @@ const realizarTransferencia = async ({ usuario, bolsillo_origen_id, bolsillo_des
 
     const bolsilloDestino = destinoRes.rows[0];
 
-    // 3. Actualizar balances
+    // 3. Actualizar balances de forma atómica
     const nuevoBalanceOrigen = bolsilloOrigen.balance - montoNumerico;
     const nuevoBalanceDestino = bolsilloDestino.balance + montoNumerico;
 
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2;`,
-      [nuevoBalanceOrigen, bolsillo_origen_id]
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      [nuevoBalanceOrigen, bolsillo_origen_id, usuarioId]
     );
 
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2;`,
-      [nuevoBalanceDestino, bolsillo_destino_id]
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      [nuevoBalanceDestino, bolsillo_destino_id, usuarioId]
     );
 
     // 4. Registrar el movimiento de transferencia
     const detalle = descripcion || `Transferencia de ${bolsilloOrigen.nombre} a ${bolsilloDestino.nombre}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
       )
-      VALUES ($1, 'transferencia', $2, 'Transferencia', $3, $4, $5, NOW())
-      RETURNING id, usuario, tipo, monto::FLOAT, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
+      VALUES ($1::uuid, 'transferencia', $2, 'Transferencia', $3, $4::uuid, $4::uuid, $5::uuid, NOW())
+      RETURNING id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
     `;
 
     const movimientoRes = await client.query(insertMovimientoQuery, [
-      usuario,
+      usuarioId,
       montoNumerico,
       detalle,
       bolsillo_origen_id,

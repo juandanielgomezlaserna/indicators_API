@@ -1,13 +1,29 @@
+/**
+ * Router: Cartera Bolsillos
+ * Responsabilidad: Definición de endpoints HTTP, protección con authMiddleware (JWT)
+ * y enrutamiento hacia la capa de controladores.
+ */
+
 const express = require('express');
 const router = express.Router();
 const carteraBolsilloController = require('../controllers/carteraBolsillo.controller');
+const { authMiddleware } = require('../middlewares/auth.middleware');
 
-// 1. Ruta para crear un bolsillo (POST)
-// Endpoint: POST /api/cartera-bolsillos
+// Proteger todas las rutas de este módulo con autenticación JWT
+router.use(authMiddleware);
+
+/**
+ * @route   POST /api/v1/cartera/bolsillos
+ * @desc    Crea un nuevo bolsillo para el usuario autenticado
+ * @access  Private (JWT)
+ */
 router.post('/', carteraBolsilloController.createBolsillo);
 
-// 2. Ruta para obtener los bolsillos de un usuario específico (GET)
-// Endpoint: GET /api/cartera-bolsillos/:usuario
-router.get('/:usuario', carteraBolsilloController.getBolsillos);
+/**
+ * @route   GET /api/v1/cartera/bolsillos
+ * @desc    Obtiene todos los bolsillos del usuario autenticado
+ * @access  Private (JWT)
+ */
+router.get('/', carteraBolsilloController.getBolsillos);
 
 module.exports = router;

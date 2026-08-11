@@ -1,38 +1,45 @@
-// 1. IMPORTACIONES OBLIGATORIAS (Sin esto, 'body' u 'header' fallan)
-const { body, header, validationResult } = require('express-validator');
-const { z } = require('zod'); // Puedes dejar Zod si lo usas en otro lado, si no, puedes borrarlo
+/**
+ * Validator: Deseos
+ * Responsabilidad: Sanitización y validación estricta de payloads con Zod.
+ */
 
-// Si no vas a usar logroSchema aquí, puedes quitarlo para que no ensucie el código.
-const logroSchema = z.object({
-  idIndicador: z.number({ required_error: "El idIndicador es obligatorio" }).int(),
-  nombre: z.string({ required_error: "El nombre es obligatorio" }).min(1, "El nombre no puede estar vacío"),
-  puntos: z.number({ required_error: "Los puntos son obligatorios" }).int().positive("Los puntos deben ser mayores a 0")
+const { z } = require('zod');
+
+// Esquema de validación estricto para Deseos
+const wishSchema = z.object({
+  indicador_id: z
+    .string({ required_error: 'El campo "indicador_id" es obligatorio.' })
+    .uuid('El campo "indicador_id" debe ser un UUID válido.'),
+
+  nombre: z
+    .string({ required_error: 'El nombre del deseo es obligatorio.' })
+    .trim()
+    .min(1, 'El nombre del deseo no puede estar vacío.')
+    .max(150, 'El nombre del deseo no puede tener más de 150 caracteres.'),
 });
 
-// 2. EL VALIDADOR DE DESEOS
-const validateWish = [
-    // 1. Validar que el ID del indicador sea un entero válido mayor a 0
-    body('indicador_id')
-        .isInt({ min: 1 })
-        .withMessage('El campo "indicador_id" debe ser un número entero válido.'),
-
-    // 2. Validar que el nombre del deseo no esté vacío
-    body('nombre')
-        .trim()
-        .notEmpty()
-        .withMessage('El nombre del deseo es obligatorio.')
-        .isLength({ max: 150 })
-        .withMessage('El nombre del deseo no puede tener más de 150 caracteres.'),
-
-    // 3. Middleware para atrapar errores
-    (req, res, next) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            const errorMessages = (errors.array() || []).map(err => err.msg);
-            return res.status(400).json({ status: 'error', errors: errorMessages });
-        }
-        next();
+/**
+ * Middleware para validar el body de la petición
+ */
+const validateWish = (req, res, next) => {
+  try {
+    // parse() valida Y limpia req.body dejando solo los campos definidos
+    req.body = wishSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Error de validación en los datos del deseo',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
     }
-];
+
+    next(error);
+  }
+};
 
 module.exports = { validateWish };

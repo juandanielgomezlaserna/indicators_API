@@ -1,114 +1,152 @@
+/**
+ * Controller: Cartera Deseos / Futuros
+ * Responsabilidad: Manejo de peticiones/respuestas HTTP, sanitización de entradas con Zod,
+ * aislamiento de contexto multi-inquilino (JWT) y orquestación con la capa de Servicios.
+ */
+
+const { z } = require('zod');
 const wishService = require('../services/wish.service');
 
+// -----------------------------------------------------------------------------
+// Validadores (Zod)
+// -----------------------------------------------------------------------------
+
+/**
+ * Esquema de validación para la creación de un nuevo deseo
+ */
+const createWishSchema = z.object({
+  indicador_id: z.string().uuid({ message: 'El indicador_id debe ser un UUID v4 válido.' }),
+  nombre: z.string().min(1, { message: 'El nombre del deseo es obligatorio.' }).trim()
+});
+
+/**
+ * Esquema de validación para parámetros de ruta con UUID v4
+ */
+const paramsUUIDSchema = z.object({
+  id: z.string().uuid({ message: 'El ID solicitado debe ser un UUID v4 válido.' })
+});
+
+/**
+ * Esquema de validación para la identidad del usuario autenticado
+ */
+const usuarioIdSchema = z.string().uuid({ message: 'El ID del usuario autenticado debe ser un UUID v4 válido.' });
+
+// -----------------------------------------------------------------------------
+// Handlers / Controllers
+// -----------------------------------------------------------------------------
+
+/**
+ * Obtiene los indicadores del usuario autenticado junto con el conteo de deseos asociados.
+ * 
+ * Route: GET /api/v1/cartera/deseos/indicadores
+ * Access: Private (authMiddleware)
+ */
 const getIndicators = async (req, res, next) => {
-    try {
-        // 1. Extraemos el string del usuario desde los headers
-        const usuario = req.headers['usuario']; 
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
 
-        // 2. Validación de seguridad
-        if (!usuario) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'El header "usuario" es obligatorio para obtener los indicadores.'
-            });
-        }
+    const result = await wishService.getAllIndicators(usuarioId);
 
-        // 3. Llamamos al Service (que ahora trae el conteo de deseos gracias al SQL)
-        const result = await wishService.getAllIndicators(usuario);
-
-        // 4. Respuesta Exitosa de cara a Flutter
-        res.status(200).json({
-            status: 'success',
-            message: 'Indicadores obtenidos correctamente con su conteo de deseos',
-            results: result.length, 
-            data: result
-        });
-    } catch (error) {
-        // Si la base de datos falla, viaja directo al manejador global de Express
-        next(error);
-    }
+    return res.status(200).json({
+      status: 'success',
+      message: 'Indicadores obtenidos correctamente con su conteo de deseos.',
+      results: result.length,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// Cambiamos el nombre de la función interna para que coincida exactamente con lo que exportas y lo que usa tu router
+/**
+ * Obtiene el detalle de un indicador específico y la lista de sus deseos asociados.
+ * 
+ * Route: GET /api/v1/cartera/deseos/indicadores/:id
+ * Access: Private (authMiddleware)
+ */
 const getWishesByIndicator = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const usuario = req.headers['usuario'];
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsUUIDSchema.parse(req.params);
 
-        // ✅ CORREGIDO: Cambiado 'deseoService' por 'wishService'
-        const result = await wishService.getWishesByIndicator(id, usuario);
+    const result = await wishService.getWishesByIndicator(id, usuarioId);
 
-        // Si el indicador no existe o no tiene datos válidos, devolvemos 404
-        if (!result || !result.indicator) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'El indicador solicitado no existe o no pertenece a este usuario.'
-            });
-        }
-
-        // Entregamos la estructura exacta que me pediste para Flutter
-        res.status(200).json({
-            status: 'success',
-            data: {
-                indicator: result.indicator,
-                wishes: result.wishes
-            }
-        });
-    } catch (error) {
-        // En caso de error en la base de datos, va directo al manejador de Express
-        next(error);
+    if (!result || !result.indicator) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'El indicador solicitado no existe o no pertenece a este usuario.'
+      });
     }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        indicator: result.indicator,
+        wishes: result.wishes
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
+/**
+ * Registra un nuevo deseo en la lista de futuros vinculada a un indicador.
+ * 
+ * Route: POST /api/v1/cartera/deseos
+ * Access: Private (authMiddleware)
+ */
 const create = async (req, res, next) => {
-    try {
-        // 1. Extraemos únicamente lo que viene en el cuerpo (body) enviado por Flutter
-        const { indicador_id, nombre } = req.body;
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const validatedBody = createWishSchema.parse(req.body);
 
-        // 2. Pasamos solo estos dos parámetros al servicio
-        const result = await wishService.saveDeseo({ indicador_id, nombre });
+    const result = await wishService.saveDeseo(usuarioId, validatedBody);
 
-        // 3. Respuesta exitosa
-        res.status(201).json({
-            status: 'success',
-            message: '¡Deseo guardado con éxito en tu lista de futuros!',
-            data: result
-        });
-    } catch (error) {
-        next(error);
-    }
+    return res.status(201).json({
+      status: 'success',
+      message: '¡Deseo guardado con éxito en tu lista de futuros!',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
+/**
+ * Elimina un deseo específico verificando la pertenencia al usuario autenticado.
+ * 
+ * Route: DELETE /api/v1/cartera/deseos/:id
+ * Access: Private (authMiddleware)
+ */
 const deleteWish = async (req, res, next) => {
-    try {
-        const { id } = req.params;
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsUUIDSchema.parse(req.params);
 
-        // Invocamos la lógica de negocio en el servicio
-        const deletedWish = await wishService.removeWish(id);
+    const deletedWish = await wishService.removeWish(id, usuarioId);
 
-        // Si el id no existía en la base de datos, rows vino vacío (null)
-        if (!deletedWish) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'El deseo solicitado no existe o ya ha sido eliminado.'
-            });
-        }
-
-        // Respuesta exitosa
-        res.status(200).json({
-            status: 'success',
-            message: '¡Deseo eliminado con éxito de tu lista de futuros!',
-            data: deletedWish
-        });
-    } catch (error) {
-        // Cualquier error del motor de BD (Neon) cae directamente al manejador global
-        next(error);
+    if (!deletedWish) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'El deseo solicitado no existe o ya ha sido eliminado.'
+      });
     }
+
+    return res.status(200).json({
+      status: 'success',
+      message: '¡Deseo eliminado con éxito de tu lista de futuros!',
+      data: deletedWish
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = {
-    getIndicators,
-    getWishesByIndicator,
-    create,
-    deleteWish,
+  getIndicators,
+  getWishesByIndicator,
+  create,
+  deleteWish,
+  createWishSchema
 };
