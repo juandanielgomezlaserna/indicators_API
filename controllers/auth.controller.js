@@ -41,12 +41,17 @@ const register = async (req, res, next) => {
 
 const getMe = async (req, res) => {
   try {
-    // req.user ya viene inyectado y validado desde el authMiddleware
+    // Asegúrate de que el SELECT traiga 'created_at'
+    const query = `
+      SELECT id, usuario, email, nombre_completo, created_at 
+      FROM public.usuario 
+      WHERE id = $1;
+    `;
+    const { rows } = await pool.query(query, [req.usuarioId]);
+    
     return res.status(200).json({
       status: 'success',
-      data: {
-        usuario: req.user,
-      },
+      data: { usuario: rows[0] },
     });
   } catch (error) {
     return res.status(500).json({
