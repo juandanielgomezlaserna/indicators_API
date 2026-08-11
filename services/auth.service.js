@@ -3,10 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const login = async ({ usuario, password }) => {
-  // 1. Buscar usuario en public.usuarios con nombres de columnas reales
+  // 1. Consulta apuntando correctamente a public.usuario y columnas reales
   const query = `
     SELECT id, usuario, email, password, nombre_completo, activo, token_version, created_at 
-    FROM public.usuarios 
+    FROM public.usuario 
     WHERE (usuario = $1 OR email = $1) AND activo = true;
   `;
   const { rows } = await pool.query(query, [usuario]);
@@ -22,10 +22,10 @@ const login = async ({ usuario, password }) => {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 3. Incrementar token_version sin tocar columnas inexistentes
+  // 3. Incrementar token_version
   const newVersion = (user.token_version || 0) + 1;
   await pool.query(
-    `UPDATE public.usuarios 
+    `UPDATE public.usuario 
      SET token_version = $1 
      WHERE id = $2;`,
     [newVersion, user.id]
@@ -58,9 +58,9 @@ const login = async ({ usuario, password }) => {
 };
 
 const register = async ({ nombre_completo, usuario, email, password }) => {
-  // 1. Verificar si el usuario o email ya existen
+  // 1. Verificar existencia en public.usuario
   const checkQuery = `
-    SELECT id FROM public.usuarios 
+    SELECT id FROM public.usuario 
     WHERE usuario = $1 OR email = $2 
     LIMIT 1;
   `;
@@ -74,9 +74,9 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  // 3. Insertar nuevo usuario en public.usuarios con la columna 'password'
+  // 3. Insertar nuevo registro en public.usuario
   const insertQuery = `
-    INSERT INTO public.usuarios (nombre_completo, usuario, email, password, created_at)
+    INSERT INTO public.usuario (nombre_completo, usuario, email, password, created_at)
     VALUES ($1, $2, $3, $4, NOW())
     RETURNING id, usuario, email, nombre_completo, token_version, created_at;
   `;
