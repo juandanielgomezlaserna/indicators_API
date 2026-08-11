@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const carteraMovimientoController = require('../controllers/carteraMovimiento.controller');
-const { authMiddleware } = require('../middlewares/auth.middleware');
+const authMiddleware = require('../middlewares/auth.middleware');
 
 // Proteger todas las rutas de este módulo con autenticación JWT
 router.use(authMiddleware);
