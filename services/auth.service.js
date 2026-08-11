@@ -2,13 +2,10 @@ const { pool } = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-/**
- * Service: Autenticar usuario y generar Token permanente (hasta nuevo login)
- */
 const login = async ({ usuario, password }) => {
-  // 1. Buscar usuario
+  // 1. Buscar usuario trayendo todos los datos necesarios
   const query = `
-    SELECT id, usuario, email, password_hash, nombre_completo, activo, token_version 
+    SELECT id, usuario, email, password_hash, nombre_completo, activo, token_version, creado_en 
     FROM public.usuario 
     WHERE (usuario = $1 OR email = $1) AND activo = true;
   `;
@@ -25,7 +22,7 @@ const login = async ({ usuario, password }) => {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 3. Incrementar token_version para invalidar tokens anteriores y actualizar acceso
+  // 3. Incrementar token_version
   const newVersion = user.token_version + 1;
   await pool.query(
     `UPDATE public.usuario 
@@ -34,17 +31,18 @@ const login = async ({ usuario, password }) => {
     [newVersion, user.id]
   );
 
-  // 4. Generar Payload con la nueva versión del token
+  // 4. Generar Payload
   const payload = {
     id: user.id,
     usuario: user.usuario,
     email: user.email,
-    token_version: newVersion, // Clave para invalidación por inicio de sesión
+    token_version: newVersion,
   };
 
-  // 5. Se firma SIN expiresIn para que NO expire por tiempo
+  // 5. Firmar Token
   const token = jwt.sign(payload, process.env.JWT_SECRET);
 
+  // 6. Retornar Token junto con la información completa del usuario (sin incluir password_hash)
   return {
     token,
     usuario: {
@@ -52,6 +50,9 @@ const login = async ({ usuario, password }) => {
       usuario: user.usuario,
       email: user.email,
       nombre_completo: user.nombre_completo,
+      activo: user.activo,
+      token_version: newVersion,
+      creado_en: user.creado_en,
     },
   };
 };
