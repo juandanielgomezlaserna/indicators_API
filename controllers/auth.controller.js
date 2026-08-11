@@ -39,4 +39,21 @@ const register = async (req, res, next) => {
   }
 };
 
-module.exports = { login, register };
+const getMe = async (req, res) => {
+  try {
+    // req.user ya viene inyectado y validado desde el authMiddleware
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        usuario: req.user,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error al obtener el perfil del usuario',
+    });
+  }
+};
+
+module.exports = { login, register, getMe };
