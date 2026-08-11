@@ -3,10 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const login = async ({ usuario, password }) => {
-  // 1. Buscar usuario trayendo todos los datos necesarios
+  // 1. Buscar usuario en public.usuarios con nombres de columnas reales
   const query = `
-    SELECT id, usuario, email, password_hash, nombre_completo, activo, token_version, creado_en 
-    FROM public.usuario 
+    SELECT id, usuario, email, password, nombre_completo, activo, token_version, created_at 
+    FROM public.usuarios 
     WHERE (usuario = $1 OR email = $1) AND activo = true;
   `;
   const { rows } = await pool.query(query, [usuario]);
@@ -16,17 +16,17 @@ const login = async ({ usuario, password }) => {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 2. Validar contraseña
-  const isMatch = await bcrypt.compare(password, user.password_hash);
+  // 2. Validar contraseña contra 'password'
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
   }
 
-  // 3. Incrementar token_version
-  const newVersion = user.token_version + 1;
+  // 3. Incrementar token_version sin tocar columnas inexistentes
+  const newVersion = (user.token_version || 0) + 1;
   await pool.query(
-    `UPDATE public.usuario 
-     SET token_version = $1, ultimo_acceso = CURRENT_TIMESTAMP 
+    `UPDATE public.usuarios 
+     SET token_version = $1 
      WHERE id = $2;`,
     [newVersion, user.id]
   );
@@ -42,7 +42,7 @@ const login = async ({ usuario, password }) => {
   // 5. Firmar Token
   const token = jwt.sign(payload, process.env.JWT_SECRET);
 
-  // 6. Retornar Token junto con la información completa del usuario (sin incluir password_hash)
+  // 6. Retornar respuesta mapeada con created_at
   return {
     token,
     usuario: {
@@ -52,7 +52,7 @@ const login = async ({ usuario, password }) => {
       nombre_completo: user.nombre_completo,
       activo: user.activo,
       token_version: newVersion,
-      creado_en: user.creado_en,
+      created_at: user.created_at,
     },
   };
 };
@@ -60,33 +60,32 @@ const login = async ({ usuario, password }) => {
 const register = async ({ nombre_completo, usuario, email, password }) => {
   // 1. Verificar si el usuario o email ya existen
   const checkQuery = `
-    SELECT id FROM public.usuario 
+    SELECT id FROM public.usuarios 
     WHERE usuario = $1 OR email = $2 
     LIMIT 1;
   `;
   const existingUserResult = await pool.query(checkQuery, [usuario, email]);
 
-  // Asegúrate de usar .rows
   if (existingUserResult.rows && existingUserResult.rows.length > 0) {
     throw { statusCode: 409, message: 'El usuario o el correo electrónico ya están registrados' };
   }
 
   // 2. Cifrar la contraseña
   const salt = await bcrypt.genSalt(10);
-  const password_hash = await bcrypt.hash(password, salt);
+  const passwordHash = await bcrypt.hash(password, salt);
 
-  // 3. Insertar nuevo usuario
+  // 3. Insertar nuevo usuario en public.usuarios con la columna 'password'
   const insertQuery = `
-    INSERT INTO public.usuario (nombre_completo, usuario, email, password_hash)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, usuario, email, nombre_completo, token_version;
+    INSERT INTO public.usuarios (nombre_completo, usuario, email, password, created_at)
+    VALUES ($1, $2, $3, $4, NOW())
+    RETURNING id, usuario, email, nombre_completo, token_version, created_at;
   `;
   
   const { rows } = await pool.query(insertQuery, [
     nombre_completo,
     usuario,
     email,
-    password_hash,
+    passwordHash,
   ]);
 
   const user = rows[0];
@@ -96,7 +95,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
     id: user.id,
     usuario: user.usuario,
     email: user.email,
-    token_version: user.token_version,
+    token_version: user.token_version || 1,
   };
 
   // 5. Firma del token
@@ -109,6 +108,7 @@ const register = async ({ nombre_completo, usuario, email, password }) => {
       usuario: user.usuario,
       email: user.email,
       nombre_completo: user.nombre_completo,
+      created_at: user.created_at,
     },
   };
 };

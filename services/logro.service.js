@@ -28,9 +28,9 @@ const guardarLogro = async (usuarioId, datosLogro) => {
   }
 
   const query = `
-    INSERT INTO public.cartera_logros (indicador_id, nombre, puntos, completado, created_at)
+    INSERT INTO public.cartera_logros (indicador_id, nombre, puntos, completado, creado_at)
     VALUES ($1, $2, $3, false, NOW()) 
-    RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, created_at;
+    RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
   `;
   
   const { rows } = await pool.query(query, [indicador_id, nombre, puntos]);
@@ -78,7 +78,7 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
       UPDATE public.cartera_logros 
       SET completado = true 
       WHERE id = $1
-      RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, created_at;
+      RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
     `;
     const resUpdateLogro = await client.query(updateLogroQuery, [logroId]);
 
@@ -111,7 +111,7 @@ const getAllLogros = async (usuarioId) => {
   const query = `
     SELECT 
       l.id, l.nombre, l.puntos::INTEGER, l.completado, 
-      l.indicador_id, l.created_at
+      l.indicador_id, l.creado_at
     FROM public.cartera_logros l
     INNER JOIN public.cartera_indicadores i ON l.indicador_id = i.id
     WHERE i.usuario_id = $1::uuid
@@ -134,14 +134,14 @@ const getAllLogrosPendientes = async (usuarioId) => {
       l.puntos::INTEGER, 
       l.completado, 
       l.indicador_id, 
-      l.created_at,
+      l.creado_at,
       i.nombre AS nombre_indicador
     FROM public.cartera_logros l
     INNER JOIN public.cartera_indicadores i ON l.indicador_id = i.id
     WHERE l.completado = false
       AND i.usuario_id = $1::uuid
-      AND l.created_at >= DATE_TRUNC('week', CURRENT_DATE)::date
-      AND l.created_at <= (DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '6 days')::date
+      AND l.creado_at >= DATE_TRUNC('week', CURRENT_DATE)::date
+      AND l.creado_at <= (DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '6 days')::date
     ORDER BY l.id DESC;
   `;
   
@@ -161,14 +161,14 @@ const getAllLogrosByWeeks = async (usuarioId) => {
       l.nombre AS logro_nombre,
       l.puntos::INTEGER AS logro_puntos,
       l.completado AS logro_completado,
-      l.created_at AS logro_created_at,
+      l.creado_at AS logro_created_at,
       i.id AS indicador_id,
       i.nombre AS indicador_nombre,
-      DATE_TRUNC('week', l.created_at)::DATE AS semana_inicio
+      DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
     FROM public.cartera_logros l
     INNER JOIN public.cartera_indicadores i ON l.indicador_id = i.id
     WHERE i.usuario_id = $1::uuid
-    ORDER BY semana_inicio DESC, l.created_at DESC;
+    ORDER BY semana_inicio DESC, l.creado_at DESC;
   `;
   
   const { rows } = await pool.query(query, [usuarioId]);
