@@ -29,9 +29,9 @@ const guardarLogro = async (usuarioId, datosLogro) => {
 
   // 2. Insertar usando la columna exacta 'idIndicador' en public.logro
   const query = `
-    INSERT INTO public.logro (idIndicador, nombre, puntos, completado, creado_at)
+    INSERT INTO public.logro ("idIndicador", nombre, puntos, completado, creado_at)
     VALUES ($1, $2, $3, false, NOW()) 
-    RETURNING id, idIndicador, nombre, puntos::INTEGER, completado, creado_at;
+    RETURNING id, "idIndicador", nombre, puntos::INTEGER, completado, creado_at;
   `;
   
   const { rows } = await pool.query(query, [idIndicador, nombre, puntos]);
@@ -52,9 +52,9 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
 
     // 1. Obtener el logro y verificar que pertenece a un indicador del usuario usando 'l.idIndicador'
     const queryLogro = `
-      SELECT l.id, l.idIndicador, l.puntos::INTEGER, l.completado
+      SELECT l.id, l."idIndicador", l.puntos::INTEGER, l.completado
       FROM public.logro l
-      INNER JOIN public.indicadores i ON l.idIndicador = i.id
+      INNER JOIN public.indicadores i ON l."idIndicador" = i.id
       WHERE l.id = $1 AND i.usuario_id = $2::uuid
       FOR UPDATE;
     `;
@@ -79,7 +79,7 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
       UPDATE public.logro 
       SET completado = true 
       WHERE id = $1
-      RETURNING id, idIndicador, nombre, puntos::INTEGER, completado, creado_at;
+      RETURNING id, "idIndicador", nombre, puntos::INTEGER, completado, creado_at;
     `;
     const resUpdateLogro = await client.query(updateLogroQuery, [logroId]);
 
@@ -112,9 +112,9 @@ const getAllLogros = async (usuarioId) => {
   const query = `
     SELECT 
       l.id, l.nombre, l.puntos::INTEGER, l.completado, 
-      l.idIndicador, l.creado_at
+      l."idIndicador", l.creado_at
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.idIndicador = i.id
+    INNER JOIN public.indicadores i ON l."idIndicador" = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY l.id DESC;
   `;
@@ -134,11 +134,11 @@ const getAllLogrosPendientes = async (usuarioId) => {
       l.nombre, 
       l.puntos::INTEGER, 
       l.completado, 
-      l.idIndicador, 
+      l."idIndicador", 
       l.creado_at,
       i.nombre AS nombre_indicador
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.idIndicador = i.id
+    INNER JOIN public.indicadores i ON l."idIndicador" = i.id
     WHERE l.completado = false
       AND i.usuario_id = $1::uuid
       AND l.creado_at >= DATE_TRUNC('week', CURRENT_DATE)::date
@@ -167,7 +167,7 @@ const getAllLogrosByWeeks = async (usuarioId) => {
       i.nombre AS indicador_nombre,
       DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.idIndicador = i.id
+    INNER JOIN public.indicadores i ON l."idIndicador" = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY semana_inicio DESC, l.creado_at DESC;
   `;

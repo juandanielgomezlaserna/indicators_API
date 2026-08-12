@@ -15,7 +15,7 @@ const getAllIndicators = async (usuarioId) => {
       i.usuario_id, 
       i.created_at,
       COUNT(d.id)::INT AS total_deseos
-    FROM public.cartera_indicadores i
+    FROM public.indicadores i
     LEFT JOIN public.cartera_deseos d ON i.id = d.indicador_id
     WHERE i.usuario_id = $1::uuid
     GROUP BY i.id
@@ -40,7 +40,7 @@ const getWishesByIndicator = async (indicadorId, usuarioId) => {
         SELECT row_to_json(i_data)
         FROM (
           SELECT id, nombre, valor::FLOAT, tipo, usuario_id, created_at 
-          FROM public.cartera_indicadores
+          FROM public.indicadores
           WHERE id = $1 AND usuario_id = $2::uuid
         ) i_data
       ) AS indicator,
@@ -55,7 +55,7 @@ const getWishesByIndicator = async (indicadorId, usuarioId) => {
           ) ORDER BY d.id DESC
         ) FILTER (WHERE d.id IS NOT NULL), '[]'
       ) AS wishes
-    FROM public.cartera_indicadores i
+    FROM public.indicadores i
     LEFT JOIN public.cartera_deseos d ON i.id = d.indicador_id
     WHERE i.id = $1 AND i.usuario_id = $2::uuid
     GROUP BY i.id;
@@ -81,7 +81,7 @@ const saveDeseo = async (usuarioId, data) => {
 
   // 1. Validar que el indicador pertenece al usuario
   const checkQuery = `
-    SELECT id FROM public.cartera_indicadores 
+    SELECT id FROM public.indicadores 
     WHERE id = $1 AND usuario_id = $2::uuid;
   `;
   const checkRes = await pool.query(checkQuery, [indicador_id, usuarioId]);
@@ -112,7 +112,7 @@ const saveDeseo = async (usuarioId, data) => {
 const removeWish = async (id, usuarioId) => {
   const query = `
     DELETE FROM public.cartera_deseos d
-    USING public.cartera_indicadores i
+    USING public.indicadores i
     WHERE d.indicador_id = i.id
       AND d.id = $1
       AND i.usuario_id = $2::uuid
