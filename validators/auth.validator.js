@@ -34,7 +34,7 @@ const validateRegister = [
     .trim()
     .notEmpty()
     .withMessage('El usuario es requerido')
-    .isLength({ min: 3, max: 50 })
+    .isLength({ min: 2, max: 50 })
     .withMessage('El usuario debe tener entre 3 y 50 caracteres'),
 
   body('email')
