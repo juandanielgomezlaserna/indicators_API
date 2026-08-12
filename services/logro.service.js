@@ -7,19 +7,16 @@ const { pool } = require('../config/db');
 
 /**
  * Registra un nuevo logro asociado a un indicador
- * 
- * @param {string} usuarioId - UUID del usuario autenticado (extraído del JWT)
- * @param {Object} datosLogro - Objeto con indicador_id, nombre y puntos
  */
 const guardarLogro = async (usuarioId, datosLogro) => {
-  const { indicador_id, nombre, puntos } = datosLogro;
+  const { indicador, nombre, puntos } = datosLogro;
 
-  // Verificar primero que el indicador pertenezca al usuario
+  // 1. Verificar en la tabla correcta: public.indicadores
   const checkQuery = `
     SELECT id FROM public.indicadores 
     WHERE id = $1 AND usuario_id = $2::uuid;
   `;
-  const checkRes = await pool.query(checkQuery, [indicador_id, usuarioId]);
+  const checkRes = await pool.query(checkQuery, [indicador, usuarioId]);
 
   if (checkRes.rows.length === 0) {
     const error = new Error('El indicador especificado no existe o no pertenece al usuario.');
@@ -27,21 +24,19 @@ const guardarLogro = async (usuarioId, datosLogro) => {
     throw error;
   }
 
+  // 2. Insertar usando la columna 'indicador' en public.logro
   const query = `
-    INSERT INTO public.logro (indicador_id, nombre, puntos, completado, creado_at)
+    INSERT INTO public.logro (indicador, nombre, puntos, completado, creado_at)
     VALUES ($1, $2, $3, false, NOW()) 
-    RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
+    RETURNING id, indicador, nombre, puntos::INTEGER, completado, creado_at;
   `;
   
-  const { rows } = await pool.query(query, [indicador_id, nombre, puntos]);
+  const { rows } = await pool.query(query, [indicador, nombre, puntos]);
   return rows[0];
 };
 
 /**
- * Chulea un logro (completado = true) y le suma los puntos al indicador correspondiente (Transacción ACID)
- * 
- * @param {string|number} logroId - ID del logro
- * @param {string} usuarioId - UUID del usuario autenticado
+ * Chulea un logro y suma los puntos al indicador
  */
 const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
   const client = await pool.connect();
@@ -49,11 +44,11 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener el logro y verificar que pertenece a un indicador del usuario
+    // Usar 'l.indicador' en lugar de 'l.indicador_id' y apuntar a public.indicadores
     const queryLogro = `
-      SELECT l.id, l.indicador_id, l.puntos::INTEGER, l.completado
+      SELECT l.id, l.indicador, l.puntos::INTEGER, l.completado
       FROM public.logro l
-      INNER JOIN public.indicadores i ON l.indicador_id = i.id
+      INNER JOIN public.indicadores i ON l.indicador = i.id
       WHERE l.id = $1 AND i.usuario_id = $2::uuid
       FOR UPDATE;
     `;
@@ -73,23 +68,21 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
       throw error;
     }
 
-    // 2. Marcar completado = true
     const updateLogroQuery = `
       UPDATE public.logro 
       SET completado = true 
       WHERE id = $1
-      RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
+      RETURNING id, indicador, nombre, puntos::INTEGER, completado, creado_at;
     `;
     const resUpdateLogro = await client.query(updateLogroQuery, [logroId]);
 
-    // 3. Sumar los puntos al indicador correspondiente
     const queryIndicador = `
       UPDATE public.indicadores 
       SET valor = valor + $1 
       WHERE id = $2 AND usuario_id = $3::uuid
       RETURNING id, nombre, valor::FLOAT;
     `;
-    await client.query(queryIndicador, [logro.puntos, logro.indicador_id, usuarioId]);
+    await client.query(queryIndicador, [logro.puntos, logro.indicador, usuarioId]);
 
     await client.query('COMMIT');
     return resUpdateLogro.rows[0];
@@ -103,17 +96,15 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
 };
 
 /**
- * Obtiene todos los logros registrados de un usuario
- * 
- * @param {string} usuarioId - UUID del usuario autenticado
+ * Obtiene todos los logros registrados
  */
 const getAllLogros = async (usuarioId) => {
   const query = `
     SELECT 
       l.id, l.nombre, l.puntos::INTEGER, l.completado, 
-      l.indicador_id, l.creado_at
+      l.indicador, l.creado_at
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.indicador_id = i.id
+    INNER JOIN public.indicadores i ON l.indicador = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY l.id DESC;
   `;
@@ -122,9 +113,7 @@ const getAllLogros = async (usuarioId) => {
 };
 
 /**
- * Obtiene los logros pendientes de la semana actual para un usuario
- * 
- * @param {string} usuarioId - UUID del usuario autenticado
+ * Obtiene los logros pendientes de la semana actual
  */
 const getAllLogrosPendientes = async (usuarioId) => {
   const query = `
@@ -133,11 +122,11 @@ const getAllLogrosPendientes = async (usuarioId) => {
       l.nombre, 
       l.puntos::INTEGER, 
       l.completado, 
-      l.indicador_id, 
+      l.indicador, 
       l.creado_at,
       i.nombre AS nombre_indicador
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.indicador_id = i.id
+    INNER JOIN public.indicadores i ON l.indicador = i.id
     WHERE l.completado = false
       AND i.usuario_id = $1::uuid
       AND l.creado_at >= DATE_TRUNC('week', CURRENT_DATE)::date
@@ -150,9 +139,7 @@ const getAllLogrosPendientes = async (usuarioId) => {
 };
 
 /**
- * Obtiene el historial de logros agrupado históricamente por semanas
- * 
- * @param {string} usuarioId - UUID del usuario autenticado
+ * Obtiene el historial de logros agrupado por semanas
  */
 const getAllLogrosByWeeks = async (usuarioId) => {
   const query = `
@@ -166,7 +153,7 @@ const getAllLogrosByWeeks = async (usuarioId) => {
       i.nombre AS indicador_nombre,
       DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
     FROM public.logro l
-    INNER JOIN public.indicadores i ON l.indicador_id = i.id
+    INNER JOIN public.indicadores i ON l.indicador = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY semana_inicio DESC, l.creado_at DESC;
   `;
