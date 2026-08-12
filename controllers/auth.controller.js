@@ -1,4 +1,5 @@
 const authService = require('../services/auth.service');
+const { pool } = require('../config/db');
 
 const login = async (req, res, next) => {
   try {
