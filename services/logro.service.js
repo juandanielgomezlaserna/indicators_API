@@ -28,7 +28,7 @@ const guardarLogro = async (usuarioId, datosLogro) => {
   }
 
   const query = `
-    INSERT INTO public.logros (indicador_id, nombre, puntos, completado, creado_at)
+    INSERT INTO public.logro (indicador_id, nombre, puntos, completado, creado_at)
     VALUES ($1, $2, $3, false, NOW()) 
     RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
   `;
@@ -52,7 +52,7 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
     // 1. Obtener el logro y verificar que pertenece a un indicador del usuario
     const queryLogro = `
       SELECT l.id, l.indicador_id, l.puntos::INTEGER, l.completado
-      FROM public.logros l
+      FROM public.logro l
       INNER JOIN public.indicadores i ON l.indicador_id = i.id
       WHERE l.id = $1 AND i.usuario_id = $2::uuid
       FOR UPDATE;
@@ -75,7 +75,7 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
 
     // 2. Marcar completado = true
     const updateLogroQuery = `
-      UPDATE public.logros 
+      UPDATE public.logro 
       SET completado = true 
       WHERE id = $1
       RETURNING id, indicador_id, nombre, puntos::INTEGER, completado, creado_at;
@@ -112,7 +112,7 @@ const getAllLogros = async (usuarioId) => {
     SELECT 
       l.id, l.nombre, l.puntos::INTEGER, l.completado, 
       l.indicador_id, l.creado_at
-    FROM public.logros l
+    FROM public.logro l
     INNER JOIN public.indicadores i ON l.indicador_id = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY l.id DESC;
@@ -136,7 +136,7 @@ const getAllLogrosPendientes = async (usuarioId) => {
       l.indicador_id, 
       l.creado_at,
       i.nombre AS nombre_indicador
-    FROM public.logros l
+    FROM public.logro l
     INNER JOIN public.indicadores i ON l.indicador_id = i.id
     WHERE l.completado = false
       AND i.usuario_id = $1::uuid
@@ -165,7 +165,7 @@ const getAllLogrosByWeeks = async (usuarioId) => {
       i.id AS indicador_id,
       i.nombre AS indicador_nombre,
       DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
-    FROM public.logros l
+    FROM public.logro l
     INNER JOIN public.indicadores i ON l.indicador_id = i.id
     WHERE i.usuario_id = $1::uuid
     ORDER BY semana_inicio DESC, l.creado_at DESC;
