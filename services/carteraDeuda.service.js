@@ -81,7 +81,7 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
     const detalleMovimiento = descripcion || `Abono a deuda con ${acreedorNombre || 'acreedor'}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_origen_id, fecha_transaccion
       )
       VALUES ($1::uuid, 'gasto', $2, $3, $4, $5, NOW())
       RETURNING id, usuario_id, tipo, monto::FLOAT, fecha_transaccion AS fecha;
