@@ -1,66 +1,96 @@
 /**
  * Validator: Cartera Deudas
- * Responsabilidad: Sanitización y validación estricta de payloads con Zod.
+ * Responsabilidad: Sanitización y validación estricta de payloads y parámetros con Zod.
  */
 
 const { z } = require('zod');
 
-// Esquema para crear deuda
+// Esquema de validación para la creación de una deuda
 const createDeudaSchema = z.object({
-  acreedor: z
-    .string({ required_error: 'El acreedor es obligatorio' })
-    .min(1, 'El nombre del acreedor no puede estar vacío')
-    .max(100, 'El nombre del acreedor es demasiado largo'),
-  tipo: z.string().optional().default('no_obligatoria'),
-  monto_inicial: z.coerce
-    .number({ invalid_type_error: 'El monto inicial debe ser un número' })
-    .positive('El monto inicial debe ser un valor positivo'),
-  monto_pendiente: z.coerce
-    .number({ invalid_type_error: 'El monto pendiente debe ser un número' })
-    .positive('El monto pendiente debe ser un valor positivo')
-    .optional(),
-  fecha_limite_pago: z.string().datetime().optional().nullable(),
+  acreedor_deudor: z.string().min(1, { message: 'El nombre del acreedor es obligatorio.' }).trim(),
+  monto_total: z.number().positive({ message: 'El monto total debe ser mayor a 0.' }),
+  monto_pendiente: z.number().positive().optional(),
+  tipo: z.enum(['cobrar', 'pagar'], { message: "El tipo debe ser 'cobrar' o 'pagar'." }),
+  fecha_limite_pago: z.string().optional().nullable(),
+  
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido')
+    .optional()
 });
 
-// Esquema para realizar un abono a la deuda
+// Esquema de validación para realizar un abono a una deuda
 const abonarDeudaSchema = z.object({
-  bolsillo_id: z
-    .string({ required_error: 'El bolsillo_id es obligatorio' })
-    .uuid('El bolsillo_id debe ser un UUID válido'),
-  monto: z.coerce
-    .number({ required_error: 'El monto a abonar es obligatorio' })
-    .positive('El monto debe ser un valor positivo'),
-  categoria: z.string().optional().default('Pago Deuda'),
-  descripcion: z.string().optional().nullable(),
+  monto: z.number().positive({ message: 'El monto del abono debe ser mayor a 0.' }),
+  
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido')
 });
 
+// Esquema de validación para parámetros de ruta que contienen IDs numéricos de deudas
+const paramsNumberIdSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'El ID de la deuda debe ser un número' })
+    .int('El ID de la deuda debe ser un número entero')
+    .positive('El ID de la deuda debe ser válido')
+});
+
+// Esquema de validación para el usuario autenticado (UUID v4)
+const usuarioIdSchema = z.string().uuid({ message: 'El ID de usuario debe ser un UUID v4 válido.' });
+
+/**
+ * Middleware para validar la creación de deudas
+ */
 const validateCreateDeuda = (req, res, next) => {
   try {
     req.body = createDeudaSchema.parse(req.body);
     next();
   } catch (error) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Datos de entrada inválidos',
-      errors: error.errors,
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de deuda inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
   }
 };
 
+/**
+ * Middleware para validar el abono a una deuda
+ */
 const validateAbonarDeuda = (req, res, next) => {
   try {
     req.body = abonarDeudaSchema.parse(req.body);
+    req.params = paramsNumberIdSchema.parse(req.params);
     next();
   } catch (error) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Datos de abono inválidos',
-      errors: error.errors,
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de abono inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
   }
 };
 
 module.exports = {
+  createDeudaSchema,
+  abonarDeudaSchema,
+  paramsNumberIdSchema,
+  usuarioIdSchema,
   validateCreateDeuda,
   validateAbonarDeuda,
 };
