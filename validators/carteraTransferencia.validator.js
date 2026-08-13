@@ -5,18 +5,23 @@
 
 const { z } = require('zod');
 
-// Esquema para crear una transferencia entre bolsillos
+// Esquema para crear una transferencia entre bolsillos (IDs numéricos enteros)
 const createTransferenciaSchema = z
   .object({
-    bolsillo_origen_id: z
-      .string({ required_error: 'El bolsillo de origen es obligatorio' })
-      .uuid('El bolsillo de origen debe ser un UUID válido'),
-    bolsillo_destino_id: z
-      .string({ required_error: 'El bolsillo de destino es obligatorio' })
-      .uuid('El bolsillo de destino debe ser un UUID válido'),
+    bolsillo_origen_id: z.coerce
+      .number({ invalid_type_error: 'El bolsillo de origen debe ser un número' })
+      .int('El bolsillo de origen debe ser un número entero')
+      .positive('El bolsillo de origen debe ser válido'),
+      
+    bolsillo_destino_id: z.coerce
+      .number({ invalid_type_error: 'El bolsillo de destino debe ser un número' })
+      .int('El bolsillo de destino debe ser un número entero')
+      .positive('El bolsillo de destino debe ser válido'),
+      
     monto: z.coerce
       .number({ invalid_type_error: 'El monto debe ser un valor numérico' })
       .positive('El monto debe ser un valor positivo'),
+      
     descripcion: z.string().trim().optional().nullable(),
   })
   .refine((data) => data.bolsillo_origen_id !== data.bolsillo_destino_id, {
@@ -48,4 +53,5 @@ const validateCreateTransferencia = (req, res, next) => {
 
 module.exports = {
   validateCreateTransferencia,
+  createTransferenciaSchema,
 };
