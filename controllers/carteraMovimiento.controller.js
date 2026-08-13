@@ -15,7 +15,11 @@ const carteraMovimientoService = require('../services/carteraMovimiento.service'
  * Esquema de validación para registrar un movimiento (Gasto / Ingreso)
  */
 const createMovimientoSchema = z.object({
-  bolsillo_id: z.string().uuid({ message: 'El bolsillo_id debe ser un UUID v4 válido.' }),
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido'),
+    
   tipo: z.enum(['ingreso', 'gasto'], { message: "El tipo debe ser 'ingreso' o 'gasto'." }),
   monto: z.number().positive({ message: 'El monto del movimiento debe ser mayor a 0.' }),
   categoria: z.string().min(1, { message: 'La categoría es obligatoria.' }).trim(),
