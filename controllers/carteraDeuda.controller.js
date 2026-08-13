@@ -15,10 +15,10 @@ const carteraDeudaService = require('../services/carteraDeuda.service');
  * Esquema de validación para la creación de una deuda
  */
 const createDeudaSchema = z.object({
-  acreedor: z.string().min(1, { message: 'El nombre del acreedor es obligatorio.' }).trim(),
-  monto_inicial: z.number().positive({ message: 'El monto inicial debe ser mayor a 0.' }),
+  acreedor_deudor: z.string().min(1, { message: 'El nombre del acreedor es obligatorio.' }).trim(),
+  monto_total: z.number().positive({ message: 'El monto total debe ser mayor a 0.' }),
   monto_pendiente: z.number().positive().optional(),
-  tipo: z.string().trim().default('no_obligatoria'),
+  tipo: z.enum(['cobrar', 'pagar'], { message: "El tipo debe ser 'cobrar' o 'pagar'." }),
   fecha_limite_pago: z.string().optional().nullable(),
   
   bolsillo_id: z.coerce
