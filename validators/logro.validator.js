@@ -4,9 +4,11 @@ const { z } = require('zod');
  * Esquema de validación estricto para Logro
  */
 const logroSchema = z.object({
-  indicador_id: z
-    .string({ required_error: 'El indicador_id es obligatorio' })
-    .uuid('El indicador_id debe ser un UUID válido'),
+  // Cambiamos indicador_id por idIndicador y ajustamos a tipo number (ya que en tu tabla es serial/integer)
+  idIndicador: z.coerce
+    .number({ invalid_type_error: 'El idIndicador debe ser un número' })
+    .int('El idIndicador debe ser un número entero')
+    .positive('El idIndicador debe ser válido'),
 
   nombre: z
     .string({ required_error: 'El nombre es obligatorio' })
@@ -25,7 +27,6 @@ const logroSchema = z.object({
  */
 const validarLogro = (req, res, next) => {
   try {
-    // parse() valida y limpia req.body dejando únicamente los datos sanitizados
     req.body = logroSchema.parse(req.body);
     next();
   } catch (error) {
