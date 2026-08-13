@@ -93,7 +93,7 @@ const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripci
     const detalleMovimiento = descripcion || `Ahorro para meta: ${meta.nombre}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_origen_id, fecha_transaccion
       )
       VALUES ($1::uuid, 'gasto', $2, 'Ahorro / Meta', $3, $4, NOW())
       RETURNING id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, fecha_transaccion AS fecha;
