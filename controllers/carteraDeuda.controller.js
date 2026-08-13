@@ -20,7 +20,7 @@ const createDeudaSchema = z.object({
   tipo: z.enum(['cobrar', 'pagar'], { message: "El tipo debe ser 'cobrar' o 'pagar'." }),
   descripcion: z.string().trim().optional(),
   
-  // Cambiado de UUID a entero para alinearse con la base de datos
+  // Clave foránea numérica hacia bolsillos
   bolsillo_id: z.coerce
     .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
     .int('El bolsillo_id debe ser un número entero')
@@ -34,7 +34,7 @@ const createDeudaSchema = z.object({
 const abonarDeudaSchema = z.object({
   monto: z.number().positive({ message: 'El monto del abono debe ser mayor a 0.' }),
   
-  // Cambiado de UUID a entero
+  // Clave foránea numérica hacia bolsillos
   bolsillo_id: z.coerce
     .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
     .int('El bolsillo_id debe ser un número entero')
@@ -42,7 +42,7 @@ const abonarDeudaSchema = z.object({
 });
 
 /**
- * Esquema de validación para parámetros de ruta que contienen IDs numéricos
+ * Esquema de validación para parámetros de ruta que contienen IDs numéricos de deudas
  */
 const paramsNumberIdSchema = z.object({
   id: z.coerce
@@ -92,7 +92,6 @@ const createDeuda = async (req, res, next) => {
 const abonarDeuda = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    // Usamos el esquema numérico para el ID de la deuda en los parámetros
     const { id } = paramsNumberIdSchema.parse(req.params);
     const validatedBody = abonarDeudaSchema.parse(req.body);
 
