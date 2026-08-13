@@ -24,7 +24,7 @@ const createMeta = async (usuarioId, { nombre, monto_objetivo, monto_actual, bol
 /**
  * Depositar saldo de un bolsillo hacia la meta (Transacción ACID)
  * 
- * @param {string} metaId - ID o UUID de la meta
+ * @param {number|string} metaId - ID de la meta
  * @param {string} usuarioId - UUID del usuario autenticado
  * @param {Object} data - Datos del depósito (bolsillo_id, monto, descripcion)
  */
@@ -34,7 +34,7 @@ const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripci
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener y verificar estado de la meta
+    // 1. Obtener y verificar estado de la meta (metaId e id son enteros/números, usuario_id es uuid)
     const metaRes = await client.query(
       `SELECT id, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, completado 
        FROM public.cartera_metas 
@@ -50,9 +50,9 @@ const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripci
 
     const meta = metaRes.rows[0];
 
-    // 2. Verificar existencia y saldo disponible del bolsillo de origen
+    // 2. Verificar existencia y saldo disponible del bolsillo de origen (id es número, quitamos el ::uuid)
     const bolsilloRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario_id = $2::uuid;`,
       [bolsillo_id, usuarioId]
     );
 
@@ -83,19 +83,19 @@ const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripci
       [nuevoMontoActualMeta, estaCompletado, metaId, usuarioId]
     );
 
-    // 5. Descontar del bolsillo
+    // 5. Descontar del bolsillo (quitamos el ::uuid de bolsillo_id)
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
       [nuevoBalanceBolsillo, bolsillo_id, usuarioId]
     );
 
-    // 6. Registrar movimiento tipo 'ahorro'
+    // 6. Registrar movimiento tipo 'gasto' (quitamos el ::uuid de bolsillo_id)
     const detalleMovimiento = descripcion || `Ahorro para meta: ${meta.nombre}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
         usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, fecha_transaccion
       )
-      VALUES ($1::uuid, 'gasto', $2, 'Ahorro / Meta', $3, $4::uuid, NOW())
+      VALUES ($1::uuid, 'gasto', $2, 'Ahorro / Meta', $3, $4, NOW())
       RETURNING id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, fecha_transaccion AS fecha;
     `;
 

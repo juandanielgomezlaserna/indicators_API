@@ -10,7 +10,8 @@ const createMetaSchema = z.object({
   nombre: z
     .string({ required_error: 'El nombre de la meta es obligatorio' })
     .min(1, 'El nombre no puede estar vacío')
-    .max(100, 'El nombre es demasiado largo'),
+    .max(100, 'El nombre es demasiado largo')
+    .trim(),
   monto_objetivo: z.coerce
     .number({ invalid_type_error: 'El monto objetivo debe ser un número' })
     .positive('El monto objetivo debe ser mayor a 0'),
@@ -19,18 +20,24 @@ const createMetaSchema = z.object({
     .min(0, 'El monto actual no puede ser negativo')
     .optional()
     .default(0),
-  bolsillo_origen_id: z
-    .string()
-    .uuid('El bolsillo_origen_id debe ser un UUID válido')
+  
+  // Corregido: Bolsillo ID es numérico (entero positivo), no UUID
+  bolsillo_origen_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_origen_id debe ser un número' })
+    .int('El bolsillo_origen_id debe ser un número entero')
+    .positive('El bolsillo_origen_id debe ser válido')
     .optional()
     .nullable(),
 });
 
 // Esquema para depositar a una meta
 const depositarMetaSchema = z.object({
-  bolsillo_id: z
-    .string({ required_error: 'El bolsillo_id es obligatorio' })
-    .uuid('El bolsillo_id debe ser un UUID válido'),
+  // Corregido: Bolsillo ID es numérico (entero positivo), no UUID
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido'),
+    
   monto: z.coerce
     .number({ required_error: 'El monto a depositar es obligatorio' })
     .positive('El monto debe ser mayor a 0'),
@@ -42,11 +49,17 @@ const validateCreateMeta = (req, res, next) => {
     req.body = createMetaSchema.parse(req.body);
     next();
   } catch (error) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Datos de meta inválidos',
-      errors: error.errors,
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de meta inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
   }
 };
 
@@ -55,15 +68,23 @@ const validateDepositarMeta = (req, res, next) => {
     req.body = depositarMetaSchema.parse(req.body);
     next();
   } catch (error) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Datos de depósito inválidos',
-      errors: error.errors,
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de depósito inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
   }
 };
 
 module.exports = {
+  createMetaSchema,
+  depositarMetaSchema,
   validateCreateMeta,
   validateDepositarMeta,
 };
