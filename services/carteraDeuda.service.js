@@ -8,8 +8,8 @@ const { pool } = require('../config/db');
 /**
  * Crea una nueva deuda asociada al usuario autenticado
  */
-const createDeuda = async (usuarioId, { acreedor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago }) => {
-  const saldoPendiente = monto_pendiente !== undefined ? monto_pendiente : monto_inicial;
+const createDeuda = async (usuarioId, { acreedor_deudor, tipo, monto_total, monto_pendiente, fecha_limite_pago }) => {
+  const saldoPendiente = monto_pendiente !== undefined ? monto_pendiente : monto_total;
 
   const query = `
     INSERT INTO public.cartera_deudas (
@@ -19,7 +19,8 @@ const createDeuda = async (usuarioId, { acreedor, tipo, monto_inicial, monto_pen
     RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, created_at;
   `;
 
-  const values = [usuarioId, acreedor, tipo || 'no_obligatoria', monto_inicial, saldoPendiente, fecha_limite_pago || null];
+  // Usamos acreedor_deudor para mapearlo a la columna 'acreedor' de la BD
+  const values = [usuarioId, acreedor_deudor, tipo || 'no_obligatoria', monto_total, saldoPendiente, fecha_limite_pago || null];
   const { rows } = await pool.query(query, values);
   return rows[0];
 };
