@@ -15,9 +15,17 @@ const logroService = require('../services/logro.service');
  * Esquema de validación para la creación de un logro
  */
 const createLogroSchema = z.object({
-  indicador_id: z.string().uuid({ message: 'El indicador_id debe ser un UUID v4 válido.' }),
+  idIndicador: z.coerce
+    .number({ invalid_type_error: 'El idIndicador debe ser un número' })
+    .int('El idIndicador debe ser un número entero')
+    .positive('El idIndicador debe ser válido'),
+    
   nombre: z.string().min(1, { message: 'El nombre del logro es obligatorio.' }).trim(),
-  puntos: z.number().int().positive({ message: 'Los puntos deben ser un número entero positivo.' })
+  
+  puntos: z.coerce
+    .number({ invalid_type_error: 'Los puntos deben ser un número' })
+    .int()
+    .positive({ message: 'Los puntos deben ser un número entero positivo.' })
 });
 
 /**
