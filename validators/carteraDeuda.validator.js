@@ -10,11 +10,15 @@ const createDeudaSchema = z.object({
   acreedor_deudor: z.string().min(1, { message: 'El nombre del acreedor es obligatorio.' }).trim(),
   monto_total: z.number().positive({ message: 'El monto total debe ser mayor a 0.' }),
   monto_pendiente: z.number().positive().optional(),
-    tipo: z.enum(['no_obligatoria', 'cobrar', 'pagar'], { 
+  
+  // Sincronizado exactamente con el ENUM tipo_deuda de PostgreSQL
+  tipo: z.enum(['no_obligatoria', 'cobrar', 'pagar'], { 
     message: "El tipo debe ser válido ('no_obligatoria', 'cobrar', 'pagar')." 
   }).default('no_obligatoria'),
+  
   fecha_limite_pago: z.string().optional().nullable(),
   
+  // Clave foránea numérica hacia bolsillos
   bolsillo_id: z.coerce
     .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
     .int('El bolsillo_id debe ser un número entero')
