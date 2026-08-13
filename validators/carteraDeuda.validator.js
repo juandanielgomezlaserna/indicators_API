@@ -10,7 +10,9 @@ const createDeudaSchema = z.object({
   acreedor_deudor: z.string().min(1, { message: 'El nombre del acreedor es obligatorio.' }).trim(),
   monto_total: z.number().positive({ message: 'El monto total debe ser mayor a 0.' }),
   monto_pendiente: z.number().positive().optional(),
-  tipo: z.enum(['cobrar', 'pagar'], { message: "El tipo debe ser 'cobrar' o 'pagar'." }),
+    tipo: z.enum(['no_obligatoria', 'cobrar', 'pagar'], { 
+    message: "El tipo debe ser válido ('no_obligatoria', 'cobrar', 'pagar')." 
+  }).default('no_obligatoria'),
   fecha_limite_pago: z.string().optional().nullable(),
   
   bolsillo_id: z.coerce
