@@ -112,9 +112,6 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
   }
 };
 
-/**
- * Obtener deudas activas de un usuario
- */
 const getDeudasByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
@@ -122,7 +119,8 @@ const getDeudasByUsuario = async (usuarioId) => {
       monto_inicial::FLOAT, monto_pendiente::FLOAT, 
       fecha_limite_pago, created_at
     FROM public.cartera_deudas
-    WHERE usuario_id = $1::uuid
+    WHERE usuario_id = $1::uuid 
+      AND monto_pendiente > 0
     ORDER BY monto_pendiente DESC;
   `;
   const { rows } = await pool.query(query, [usuarioId]);
