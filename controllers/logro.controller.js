@@ -31,8 +31,14 @@ const createLogroSchema = z.object({
 /**
  * Esquema de validación para parámetros de ruta con UUID v4
  */
-const paramsUUIDSchema = z.object({
-  id: z.string().uuid({ message: 'El ID del logro debe ser un UUID v4 válido.' })
+/**
+ * Esquema de validación para parámetros de ruta que esperan un ID numérico (entero)
+ */
+const paramsNumberIdSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'El ID del logro debe ser un número' })
+    .int('El ID del logro debe ser un número entero')
+    .positive('El ID del logro debe ser válido')
 });
 
 /**
@@ -109,7 +115,8 @@ const create = async (req, res, next) => {
 const checkLogro = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    const { id } = paramsUUIDSchema.parse(req.params);
+    // Usamos el esquema numérico en lugar de paramsUUIDSchema
+    const { id } = paramsNumberIdSchema.parse(req.params);
 
     const logroCompletado = await logroService.chulearLogroYSumarPuntos(id, usuarioId);
 
