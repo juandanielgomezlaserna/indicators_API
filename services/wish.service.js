@@ -16,7 +16,7 @@ const getAllIndicators = async (usuarioId) => {
       i.created_at,
       COUNT(d.id)::INT AS total_deseos
     FROM public.indicadores i
-    LEFT JOIN public.cartera_deseos d ON i.id = d.indicador_id
+    LEFT JOIN public.deseo d ON i.id = d.indicador_id
     WHERE i.usuario_id = $1::uuid
     GROUP BY i.id
     ORDER BY i.id DESC;
@@ -56,7 +56,7 @@ const getWishesByIndicator = async (indicadorId, usuarioId) => {
         ) FILTER (WHERE d.id IS NOT NULL), '[]'
       ) AS wishes
     FROM public.indicadores i
-    LEFT JOIN public.cartera_deseos d ON i.id = d.indicador_id
+    LEFT JOIN public.deseo d ON i.id = d.indicador_id
     WHERE i.id = $1 AND i.usuario_id = $2::uuid
     GROUP BY i.id;
   `;
@@ -94,7 +94,7 @@ const saveDeseo = async (usuarioId, data) => {
 
   // 2. Insertar el deseo
   const query = `
-    INSERT INTO public.cartera_deseos (indicador_id, nombre, created_at)
+    INSERT INTO public.deseo (indicador_id, nombre, created_at)
     VALUES ($1, $2, NOW())
     RETURNING id, indicador_id, nombre, created_at;
   `;
@@ -111,7 +111,7 @@ const saveDeseo = async (usuarioId, data) => {
  */
 const removeWish = async (id, usuarioId) => {
   const query = `
-    DELETE FROM public.cartera_deseos d
+    DELETE FROM public.deseo d
     USING public.indicadores i
     WHERE d.indicador_id = i.id
       AND d.id = $1
