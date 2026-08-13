@@ -11,11 +11,11 @@ const createMovimiento = async (usuarioId, { bolsillo_id, tipo, monto, categoria
   try {
     await client.query('BEGIN');
 
-    // 1. Validar existencia del bolsillo y obtener balance actual
+    // 1. Validar existencia del bolsillo y obtener balance actual (id es INTEGER, usuario_id es UUID)
     const bolsilloQuery = `
       SELECT id, balance::FLOAT 
       FROM public.cartera_bolsillos 
-      WHERE id = $1::uuid AND usuario_id = $2::uuid;
+      WHERE id = $1 AND usuario_id = $2::uuid;
     `;
     const bolsilloRes = await client.query(bolsilloQuery, [bolsillo_id, usuarioId]);
 
@@ -37,15 +37,15 @@ const createMovimiento = async (usuarioId, { bolsillo_id, tipo, monto, categoria
     const bolsilloOrigenId = esGasto ? bolsillo_id : null;
     const bolsilloDestinoId = esGasto ? null : bolsillo_id;
 
-    // 3. Insertar el movimiento en cartera_movimientos
+    // 3. Insertar el movimiento en cartera_movimientos (Usando solo columnas reales: bolsillo_origen_id y bolsillo_destino_id)
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, NOW())
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, NOW())
       RETURNING 
         id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, 
-        bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
+        bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
     `;
 
     const movimientoRes = await client.query(insertMovimientoQuery, [
@@ -54,16 +54,15 @@ const createMovimiento = async (usuarioId, { bolsillo_id, tipo, monto, categoria
       montoNumerico,
       categoria,
       descripcion || null,
-      bolsillo_id,
       bolsilloOrigenId,
       bolsilloDestinoId
     ]);
 
-    // 4. Actualizar el saldo del bolsillo
+    // 4. Actualizar el saldo del bolsillo (id es INTEGER)
     const updateBolsilloQuery = `
       UPDATE public.cartera_bolsillos
       SET balance = $1
-      WHERE id = $2::uuid AND usuario_id = $3::uuid;
+      WHERE id = $2 AND usuario_id = $3::uuid;
     `;
     await client.query(updateBolsilloQuery, [nuevoBalance, bolsillo_id, usuarioId]);
 
@@ -96,11 +95,11 @@ const getMovimientosByUsuario = async (usuarioId) => {
       m.categoria, 
       m.descripcion, 
       m.fecha_transaccion AS fecha,
-      COALESCE(m.bolsillo_id, m.bolsillo_origen_id, m.bolsillo_destino_id) AS bolsillo_id,
+      COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id) AS bolsillo_id,
       b.nombre AS bolsillo_nombre
     FROM public.cartera_movimientos m
     LEFT JOIN public.cartera_bolsillos b 
-      ON b.id = COALESCE(m.bolsillo_id, m.bolsillo_origen_id, m.bolsillo_destino_id)
+      ON b.id = COALESCE(m.bolsillo_origen_id, m.bolsillo_destino_id)
     WHERE m.usuario_id = $1::uuid
     ORDER BY m.fecha_transaccion DESC
     LIMIT 20;
