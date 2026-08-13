@@ -15,8 +15,16 @@ const carteraTransferenciaService = require('../services/carteraTransferencia.se
  * Esquema de validación para la realización de una transferencia entre bolsillos
  */
 const createTransferenciaSchema = z.object({
-  bolsillo_origen_id: z.string().uuid({ message: 'El bolsillo_origen_id debe ser un UUID v4 válido.' }),
-  bolsillo_destino_id: z.string().uuid({ message: 'El bolsillo_destino_id debe ser un UUID v4 válido.' }),
+  bolsillo_origen_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_origen_id debe ser un número' })
+    .int('El bolsillo_origen_id debe ser un número entero')
+    .positive('El bolsillo_origen_id debe ser válido'),
+    
+  bolsillo_destino_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_destino_id debe ser un número' })
+    .int('El bolsillo_destino_id debe ser un número entero')
+    .positive('El bolsillo_destino_id debe ser válido'),
+    
   monto: z.number().positive({ message: 'El monto de la transferencia debe ser mayor a 0.' }),
   descripcion: z.string().trim().optional()
 }).refine(data => data.bolsillo_origen_id !== data.bolsillo_destino_id, {
