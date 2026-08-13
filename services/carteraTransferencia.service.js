@@ -11,9 +11,9 @@ const realizarTransferencia = async (usuarioId, { bolsillo_origen_id, bolsillo_d
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener y validar bolsillo de origen
+    // 1. Obtener y validar bolsillo de origen (id es INTEGER, usuario_id es UUID)
     const origenRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario_id = $2::uuid;`,
       [bolsillo_origen_id, usuarioId]
     );
 
@@ -32,9 +32,9 @@ const realizarTransferencia = async (usuarioId, { bolsillo_origen_id, bolsillo_d
       throw error;
     }
 
-    // 2. Obtener y validar bolsillo de destino
+    // 2. Obtener y validar bolsillo de destino (id es INTEGER)
     const destinoRes = await client.query(
-      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      `SELECT id, nombre, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario_id = $2::uuid;`,
       [bolsillo_destino_id, usuarioId]
     );
 
@@ -51,22 +51,22 @@ const realizarTransferencia = async (usuarioId, { bolsillo_origen_id, bolsillo_d
     const nuevoBalanceDestino = bolsilloDestino.balance + montoNumerico;
 
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
       [nuevoBalanceOrigen, bolsillo_origen_id, usuarioId]
     );
 
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
       [nuevoBalanceDestino, bolsillo_destino_id, usuarioId]
     );
 
-    // 4. Registrar el movimiento de transferencia
+    // 4. Registrar el movimiento de transferencia (Usando estrictamente las columnas reales de la tabla)
     const detalle = descripcion || `Transferencia de ${bolsilloOrigen.nombre} a ${bolsilloDestino.nombre}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
-        usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
+        usuario_id, tipo, monto, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion
       )
-      VALUES ($1::uuid, 'transferencia', $2, 'Transferencia', $3, $4::uuid, $4::uuid, $5::uuid, NOW())
+      VALUES ($1::uuid, 'transferencia', $2, 'Transferencia', $3, $4, $5, NOW())
       RETURNING id, usuario_id, tipo, monto::FLOAT, categoria, descripcion, bolsillo_origen_id, bolsillo_destino_id, fecha_transaccion AS fecha;
     `;
 
