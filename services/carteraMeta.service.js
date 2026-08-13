@@ -126,11 +126,6 @@ const depositarAMeta = async (metaId, usuarioId, { bolsillo_id, monto, descripci
   }
 };
 
-/**
- * Obtener metas del usuario autenticado
- * 
- * @param {string} usuarioId - UUID del usuario autenticado
- */
 const getMetasByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
@@ -140,8 +135,9 @@ const getMetasByUsuario = async (usuarioId) => {
       m.completado, m.created_at
     FROM public.cartera_metas m
     LEFT JOIN public.cartera_bolsillos b ON m.bolsillo_origen_id = b.id
-    WHERE m.usuario_id = $1::uuid
-    ORDER BY m.completado ASC, m.created_at DESC;
+    WHERE m.usuario_id = $1::uuid 
+      AND m.completado = FALSE
+    ORDER BY m.created_at DESC;
   `;
   const { rows } = await pool.query(query, [usuarioId]);
   return rows;
