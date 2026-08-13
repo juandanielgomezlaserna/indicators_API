@@ -19,7 +19,13 @@ const createDeudaSchema = z.object({
   monto_total: z.number().positive({ message: 'El monto total debe ser un número positivo mayor a 0.' }),
   tipo: z.enum(['cobrar', 'pagar'], { message: "El tipo debe ser 'cobrar' o 'pagar'." }),
   descripcion: z.string().trim().optional(),
-  bolsillo_id: z.string().uuid({ message: 'El bolsillo_id debe ser un UUID válido.' }).optional()
+  
+  // Cambiado de UUID a entero para alinearse con la base de datos
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido')
+    .optional()
 });
 
 /**
@@ -27,18 +33,26 @@ const createDeudaSchema = z.object({
  */
 const abonarDeudaSchema = z.object({
   monto: z.number().positive({ message: 'El monto del abono debe ser mayor a 0.' }),
-  bolsillo_id: z.string().uuid({ message: 'El bolsillo_id debe ser un UUID válido.' })
+  
+  // Cambiado de UUID a entero
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido')
 });
 
 /**
- * Esquema de validación para parámetros de ruta que contienen UUIDs
+ * Esquema de validación para parámetros de ruta que contienen IDs numéricos
  */
-const paramsUUIDSchema = z.object({
-  id: z.string().uuid({ message: 'El ID de la deuda debe ser un UUID v4 válido.' })
+const paramsNumberIdSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'El ID de la deuda debe ser un número' })
+    .int('El ID de la deuda debe ser un número entero')
+    .positive('El ID de la deuda debe ser válido')
 });
 
 /**
- * Esquema de validación para el usuario autenticado (UUID)
+ * Esquema de validación para el usuario autenticado (Único UUID del sistema)
  */
 const usuarioIdSchema = z.string().uuid({ message: 'El ID de usuario debe ser un UUID v4 válido.' });
 
@@ -78,7 +92,8 @@ const createDeuda = async (req, res, next) => {
 const abonarDeuda = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    const { id } = paramsUUIDSchema.parse(req.params);
+    // Usamos el esquema numérico para el ID de la deuda en los parámetros
+    const { id } = paramsNumberIdSchema.parse(req.params);
     const validatedBody = abonarDeudaSchema.parse(req.body);
 
     const resultado = await carteraDeudaService.abonarDeuda(id, usuarioId, validatedBody);
