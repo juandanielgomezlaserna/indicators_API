@@ -1,16 +1,12 @@
 /**
  * Service: Cartera Deudas
- * Responsabilidad: Lógica de negocio, persistencia y transacciones atómicas.
+ * Responsabilidad: Lógica de negocio, persistencia y transacciones atómicas (ACID).
  */
 
 const { pool } = require('../config/db');
 
 /**
  * Crea una nueva deuda asociada al usuario autenticado
- * 
- * @param {string} usuarioId - UUID del usuario autenticado (extraído del JWT)
- * @param {Object} data - Payload validado de la deuda
- * @returns {Promise<Object>} Registro de la deuda creada
  */
 const createDeuda = async (usuarioId, { acreedor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago }) => {
   const saldoPendiente = monto_pendiente !== undefined ? monto_pendiente : monto_inicial;
@@ -30,10 +26,6 @@ const createDeuda = async (usuarioId, { acreedor, tipo, monto_inicial, monto_pen
 
 /**
  * Registra un abono a una deuda y actualiza el bolsillo + movimientos (Transacción ACID)
- * 
- * @param {string} deudaId - ID o UUID de la deuda
- * @param {string} usuarioId - UUID del usuario autenticado
- * @param {Object} data - Datos del abono (bolsillo_id, monto, categoria, descripcion)
  */
 const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, descripcion }) => {
   const client = await pool.connect();
@@ -41,7 +33,7 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener estado actual de la deuda
+    // 1. Obtener estado actual de la deuda (id es INTEGER, usuario_id es UUID)
     const deudaRes = await client.query(
       `SELECT id, acreedor, monto_pendiente::FLOAT FROM public.cartera_deudas WHERE id = $1 AND usuario_id = $2::uuid;`,
       [deudaId, usuarioId]
@@ -57,9 +49,9 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
     const saldoPendienteActual = deudaRes.rows[0].monto_pendiente;
     const nuevoMontoPendiente = Math.max(0, saldoPendienteActual - monto);
 
-    // 2. Verificar existencia y balance del bolsillo
+    // 2. Verificar existencia y balance del bolsillo (id es INTEGER, quitamos el ::uuid erróneo)
     const bolsilloRes = await client.query(
-      `SELECT id, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1::uuid AND usuario_id = $2::uuid;`,
+      `SELECT id, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario_id = $2::uuid;`,
       [bolsillo_id, usuarioId]
     );
 
@@ -72,25 +64,25 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
     const balanceBolsillo = bolsilloRes.rows[0].balance;
     const nuevoBalanceBolsillo = balanceBolsillo - monto;
 
-    // 3. Actualizar monto pendiente de la deuda
+    // 3. Actualizar monto pendiente de la deuda (id es INTEGER)
     await client.query(
       `UPDATE public.cartera_deudas SET monto_pendiente = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
       [nuevoMontoPendiente, deudaId, usuarioId]
     );
 
-    // 4. Descontar saldo del bolsillo
+    // 4. Descontar saldo del bolsillo (id es INTEGER, quitamos el ::uuid erróneo)
     await client.query(
-      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2::uuid AND usuario_id = $3::uuid;`,
+      `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
       [nuevoBalanceBolsillo, bolsillo_id, usuarioId]
     );
 
-    // 5. Insertar movimiento de gasto en la cartera
+    // 5. Insertar movimiento de gasto en la cartera (bolsillo_id es INTEGER, sin ::uuid)
     const detalleMovimiento = descripcion || `Abono a deuda con ${acreedorNombre || 'acreedor'}`;
     const insertMovimientoQuery = `
       INSERT INTO public.cartera_movimientos (
         usuario_id, tipo, monto, categoria, descripcion, bolsillo_id, fecha_transaccion
       )
-      VALUES ($1::uuid, 'gasto', $2, $3, $4, $5::uuid, NOW())
+      VALUES ($1::uuid, 'gasto', $2, $3, $4, $5, NOW())
       RETURNING id, usuario_id, tipo, monto::FLOAT, fecha_transaccion AS fecha;
     `;
     const movimientoRes = await client.query(insertMovimientoQuery, [
@@ -121,8 +113,6 @@ const abonarDeuda = async (deudaId, usuarioId, { bolsillo_id, monto, categoria, 
 
 /**
  * Obtener deudas activas de un usuario
- * 
- * @param {string} usuarioId - UUID del usuario autenticado
  */
 const getDeudasByUsuario = async (usuarioId) => {
   const query = `
