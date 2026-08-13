@@ -15,19 +15,26 @@ const wishService = require('../services/wish.service');
  * Esquema de validación para la creación de un nuevo deseo
  */
 const createWishSchema = z.object({
-  indicador_id: z.string().uuid({ message: 'El indicador_id debe ser un UUID v4 válido.' }),
+  indicador_id: z.coerce
+    .number({ invalid_type_error: 'El indicador_id debe ser un número' })
+    .int('El indicador_id debe ser un número entero')
+    .positive('El indicador_id debe ser válido'),
+    
   nombre: z.string().min(1, { message: 'El nombre del deseo es obligatorio.' }).trim()
 });
 
 /**
- * Esquema de validación para parámetros de ruta con UUID v4
+ * Esquema de validación para parámetros de ruta que esperan un ID numérico entero
  */
-const paramsUUIDSchema = z.object({
-  id: z.string().uuid({ message: 'El ID solicitado debe ser un UUID v4 válido.' })
+const paramsNumberIdSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'El ID solicitado debe ser un número' })
+    .int('El ID solicitado debe ser un número entero')
+    .positive('El ID solicitado debe ser válido')
 });
 
 /**
- * Esquema de validación para la identidad del usuario autenticado
+ * Esquema de validación para la identidad del usuario autenticado (Único UUID del sistema)
  */
 const usuarioIdSchema = z.string().uuid({ message: 'El ID del usuario autenticado debe ser un UUID v4 válido.' });
 
@@ -67,7 +74,7 @@ const getIndicators = async (req, res, next) => {
 const getWishesByIndicator = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    const { id } = paramsUUIDSchema.parse(req.params);
+    const { id } = paramsNumberIdSchema.parse(req.params);
 
     const result = await wishService.getWishesByIndicator(id, usuarioId);
 
@@ -122,7 +129,7 @@ const create = async (req, res, next) => {
 const deleteWish = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    const { id } = paramsUUIDSchema.parse(req.params);
+    const { id } = paramsNumberIdSchema.parse(req.params);
 
     const deletedWish = await wishService.removeWish(id, usuarioId);
 
