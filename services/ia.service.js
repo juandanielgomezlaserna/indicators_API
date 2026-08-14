@@ -6,13 +6,13 @@
 
 const { GoogleGenAI, Type } = require('@google/genai');
 
-// Inicializa el cliente oficial (detecta automáticamente la variable GEMINI_API_KEY del .env)
-const ai = new GoogleGenAI();
+// Inicialización explícita pasando la API key para evitar errores de contexto en despliegue
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Función genérica para enviar consultas libres a Gemini
  */
-const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres un asistente financiero experto y analítico.") => {
+const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres un mentor de vida y coach de crecimiento personal experto y analítico.") => {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -35,8 +35,8 @@ const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres u
  * Función avanzada para estructurar prompts con reglas estrictas y salida JSON forzada.
  * 
  * @param {Object} params
- * @param {string} params.rol - El rol que debe asumir la IA (ej: "Eres un asesor financiero personal empático...")
- * @param {string|Object} params.contexto - Los datos o información cruda (ej: el resumen general del usuario en JSON)
+ * @param {string} params.rol - El rol que debe asumir la IA
+ * @param {string|Object} params.contexto - Los datos o información cruda
  * @param {string[]} params.reglas - Lista de reglas o restricciones que la IA debe cumplir
  * @param {Object} params.schemaJson - Objeto de esquema compatible con @google/genai (Type) para estructurar el JSON
  * @returns {Promise<Object>} - Retorna el objeto JSON parseado y validado
@@ -81,5 +81,4 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
 module.exports = {
   consultarGeminiService,
   generarRespuestaEstructuradaService,
-  Type // Exportamos Type para que puedas definir fácilmente los tipos en tus esquemas JSON
 };
