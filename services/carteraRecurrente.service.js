@@ -130,11 +130,10 @@ const ejecutarRecurrente = async (id, usuarioId) => {
         monto, 
         categoria, 
         descripcion, 
-        bolsillo_id,
         bolsillo_origen_id, 
         fecha_transaccion
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6::integer, $6::integer, CURRENT_TIMESTAMP)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6::integer, CURRENT_TIMESTAMP)
       RETURNING id;
     `;
 
