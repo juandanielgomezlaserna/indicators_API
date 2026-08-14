@@ -5,7 +5,7 @@
  */
 
 const { obtenerResumenGeneralService } = require('../services/resumenGeneral.service');
-const { generarRespuestaEstructuradaService, Type } = require('../services/ai.service');
+const { generarRespuestaEstructuradaService, Type } = require('../services/ia.service');
 const { usuarioIdSchema } = require('../validators/carteraRecurrente.validator');
 
 const getTarjetaDiariaInteligente = async (req, res, next) => {
