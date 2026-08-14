@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres un mentor de vida y coach de crecimiento personal experto y analítico.") => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: promptUsuario,
       config: {
         systemInstruction: systemInstruction,
@@ -23,7 +23,8 @@ const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres u
       }
     });
 
-    return response.text();
+    // CORRECCIÓN: En @google/genai, .text es una propiedad, no una función.
+    return response.text;
   } catch (error) {
     const err = new Error(`Error al comunicarse con la IA: ${error.message}`);
     err.statusCode = 500;
@@ -59,7 +60,7 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
 
     // 3. Llamar a Gemini utilizando Structured Outputs (Garantiza que la respuesta cumpla el schema)
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: promptMaestro,
       config: {
         systemInstruction: rol,
@@ -69,8 +70,8 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
       }
     });
 
-    // 4. Retornar el JSON ya parseado listo para el controlador y la app de Flutter
-    return JSON.parse(response.text());
+    // 4. CORRECCIÓN: .text es una propiedad directa en este SDK. Retornar el JSON parseado.
+    return JSON.parse(response.text);
   } catch (error) {
     const err = new Error(`Error al generar respuesta estructurada con IA: ${error.message}`);
     err.statusCode = 500;
