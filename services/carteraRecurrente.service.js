@@ -84,22 +84,16 @@ const toggleEstadoRecurrente = async (id, usuarioId) => {
   return rows[0];
 };
 
-/**
- * Ejecuta una transacción recurrente descontando del bolsillo y creando el movimiento
- * 
- * @param {string} id - ID de la regla recurrente
- * @param {string} usuarioId - UUID del usuario autenticado
- */
 const ejecutarRecurrente = async (id, usuarioId) => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener la transacción recurrente con bloqueo de fila
+    // 1. Obtener la transacción recurrente (id es numérico, usuario_id es uuid)
     const recurrenteQuery = `
       SELECT * FROM public.cartera_recurrentes 
-      WHERE id = $1 AND usuario_id = $2::uuid AND activo = true
+      WHERE id = $1::integer AND usuario_id = $2::uuid AND activo = true
       FOR UPDATE;
     `;
     const { rows } = await client.query(recurrenteQuery, [id, usuarioId]);
@@ -112,12 +106,12 @@ const ejecutarRecurrente = async (id, usuarioId) => {
 
     const rec = rows[0];
 
-    // 2. Descontar o Sumar Saldo en el Bolsillo Afectado
+    // 2. Descontar o Sumar Saldo en el Bolsillo Afectado (bolsillo_id es numérico)
     const esGasto = rec.tipo.toLowerCase() === 'gasto';
     const ajusteSaldoQuery = `
       UPDATE public.cartera_bolsillos 
       SET balance = balance ${esGasto ? '-' : '+'} $1 
-      WHERE id = $2::uuid AND usuario_id = $3::uuid
+      WHERE id = $2::integer AND usuario_id = $3::uuid
       RETURNING balance::FLOAT;
     `;
     const bolsilloRes = await client.query(ajusteSaldoQuery, [rec.monto, rec.bolsillo_id, usuarioId]);
@@ -128,7 +122,7 @@ const ejecutarRecurrente = async (id, usuarioId) => {
       throw error;
     }
 
-    // 3. Crear el Movimiento Histórico vinculando el bolsillo correspondiente
+    // 3. Crear el Movimiento Histórico (bolsillo_id y bolsillo_origen_id son numéricos)
     const movimientoQuery = `
       INSERT INTO public.cartera_movimientos (
         usuario_id, 
@@ -140,7 +134,7 @@ const ejecutarRecurrente = async (id, usuarioId) => {
         bolsillo_origen_id, 
         fecha_transaccion
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $6::uuid, CURRENT_TIMESTAMP)
+      VALUES ($1::uuid, $2, $3, $4, $5, $6::integer, $6::integer, CURRENT_TIMESTAMP)
       RETURNING id;
     `;
 
@@ -166,7 +160,7 @@ const ejecutarRecurrente = async (id, usuarioId) => {
     const updateFechaQuery = `
       UPDATE public.cartera_recurrentes
       SET proxima_ejecucion = proxima_ejecucion + ${intervaloSQL}
-      WHERE id = $1 AND usuario_id = $2::uuid
+      WHERE id = $1::integer AND usuario_id = $2::uuid
       RETURNING id, descripcion, proxima_ejecucion;
     `;
     const updateRes = await client.query(updateFechaQuery, [id, usuarioId]);
