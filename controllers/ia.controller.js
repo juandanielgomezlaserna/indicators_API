@@ -27,17 +27,17 @@ const getTarjetaDiariaInteligente = async (req, res, next) => {
       "Mantén un tono empático, exigente pero comprensivo, inspirando claridad mental y orden."
     ];
 
-    // Esquema estricto ajustado al desarrollo personal integral
+    console.log("DEBUG: ¿Qué es Type?", Type);
     const schemaJson = {
-      type: Type.OBJECT,
+      type: "object",
       properties: {
         frase_motivacional: { 
-          type: Type.STRING, 
-          description: "Frase motivacional de alto rendimiento enfocada en el crecimiento personal y mentalidad." 
+          type: "string",
+          description: "Frase motivacional de alto rendimiento..." 
         },
         consejo_financiero: { 
-          type: Type.STRING, 
-          description: "Consejo de vida, hábitos, organización o financiero estratégico según lo que más necesite el usuario hoy." 
+          type: "string", 
+          description: "Consejo de vida, hábitos, organización..." 
         }
       },
       required: ['frase_motivacional', 'consejo_financiero']
