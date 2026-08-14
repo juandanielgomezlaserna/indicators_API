@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres un mentor de vida y coach de crecimiento personal experto y analítico.") => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: promptUsuario,
       config: {
         systemInstruction: systemInstruction,
@@ -23,7 +23,6 @@ const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres u
       }
     });
 
-    // CORRECCIÓN: En @google/genai, .text es una propiedad, no una función.
     return response.text;
   } catch (error) {
     const err = new Error(`Error al comunicarse con la IA: ${error.message}`);
@@ -58,19 +57,19 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
     ${reglasTexto}
     `;
 
-    // 3. Llamar a Gemini utilizando Structured Outputs (Garantiza que la respuesta cumpla el schema)
+    // 3. Llamar a Gemini utilizando Structured Outputs con el modelo activo correcto
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: promptMaestro,
       config: {
         systemInstruction: rol,
         responseMimeType: 'application/json',
         responseSchema: schemaJson,
-        temperature: 0.4, // Temperatura moderada-baja para respetar con precisión las reglas y el formato
+        temperature: 0.4,
       }
     });
 
-    // 4. CORRECCIÓN: .text es una propiedad directa en este SDK. Retornar el JSON parseado.
+    // 4. Retornar el JSON ya parseado
     return JSON.parse(response.text);
   } catch (error) {
     const err = new Error(`Error al generar respuesta estructurada con IA: ${error.message}`);
@@ -82,4 +81,5 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
 module.exports = {
   consultarGeminiService,
   generarRespuestaEstructuradaService,
+  Type,
 };
