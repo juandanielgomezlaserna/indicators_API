@@ -6,14 +6,31 @@
 
 const { GoogleGenAI, Type } = require('@google/genai');
 
-// Inicialización explícita pasando la API key para evitar errores de contexto en despliegue
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
- * Función genérica para enviar consultas libres a Gemini
+ * Función auxiliar de reintento para lidiar con picos de alta demanda (503)
  */
+const reintentarConexion = async (fn, maxIntentos = 3, delayMs = 1000) => {
+  for (let intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      return await fn();
+    } catch (error) {
+      // Si es un error de alta demanda (503 / UNAVAILABLE) y quedan intentos, esperamos y reintentamos
+      const esSobrecarga = error.message.includes('503') || error.message.includes('UNAVAILABLE') || error.message.includes('high demand');
+      if (esSobrecarga && intento < maxIntentos) {
+        console.warn(`⚠️ [AiService]: Modelo saturado. Reintento ${intento} de ${maxIntentos} en ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        delayMs *= 2; // Backoff exponencial
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres un mentor de vida y coach de crecimiento personal experto y analítico.") => {
-  try {
+  return reintentarConexion(async () => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: promptUsuario,
@@ -22,42 +39,24 @@ const consultarGeminiService = async (promptUsuario, systemInstruction = "Eres u
         temperature: 0.7,
       }
     });
-
     return response.text;
-  } catch (error) {
-    const err = new Error(`Error al comunicarse con la IA: ${error.message}`);
-    err.statusCode = 500;
-    throw err;
-  }
+  });
 };
 
-/**
- * Función avanzada para estructurar prompts con reglas estrictas y salida JSON forzada.
- * 
- * @param {Object} params
- * @param {string} params.rol - El rol que debe asumir la IA
- * @param {string|Object} params.contexto - Los datos o información cruda
- * @param {string[]} params.reglas - Lista de reglas o restricciones que la IA debe cumplir
- * @param {Object} params.schemaJson - Objeto de esquema compatible con @google/genai (Type) para estructurar el JSON
- * @returns {Promise<Object>} - Retorna el objeto JSON parseado y validado
- */
 const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, schemaJson }) => {
-  try {
-    // 1. Construir las reglas formateadas como texto limpio
-    const reglasTexto = Array.isArray(reglas) 
-      ? reglas.map((regla, index) => `${index + 1}. ${regla}`).join('\n') 
-      : reglas;
+  const reglasTexto = Array.isArray(reglas) 
+    ? reglas.map((regla, index) => `${index + 1}. ${regla}`).join('\n') 
+    : reglas;
 
-    // 2. Armar el prompt maestro combinando el contexto y las reglas de negocio
-    const promptMaestro = `
-    CONTEXTO A ANALIZAR:
-    ${typeof contexto === 'string' ? contexto : JSON.stringify(contexto, null, 2)}
+  const promptMaestro = `
+  CONTEXTO A ANALIZAR:
+  ${typeof contexto === 'string' ? contexto : JSON.stringify(contexto, null, 2)}
 
-    REGLAS ESTRICTAS QUE DEBES CUMPLIR:
-    ${reglasTexto}
-    `;
+  REGLAS ESTRICTAS QUE DEBES CUMPLIR:
+  ${reglasTexto}
+  `;
 
-    // 3. Llamar a Gemini utilizando Structured Outputs con el modelo activo correcto
+  return reintentarConexion(async () => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: promptMaestro,
@@ -69,13 +68,8 @@ const generarRespuestaEstructuradaService = async ({ rol, contexto, reglas, sche
       }
     });
 
-    // 4. Retornar el JSON ya parseado
     return JSON.parse(response.text);
-  } catch (error) {
-    const err = new Error(`Error al generar respuesta estructurada con IA: ${error.message}`);
-    err.statusCode = 500;
-    throw err;
-  }
+  });
 };
 
 module.exports = {
