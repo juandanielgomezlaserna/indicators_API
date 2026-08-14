@@ -7,23 +7,38 @@
 const { z } = require('zod');
 const carteraRecurrenteService = require('../services/carteraRecurrente.service');
 
-// -----------------------------------------------------------------------------
-// Validadores (Zod)
-// -----------------------------------------------------------------------------
-
-/**
- * Esquema de validación para la creación de una transacción recurrente
- */
 const createRecurrenteSchema = z.object({
-  bolsillo_id: z.string().uuid({ message: 'El bolsillo_id debe ser un UUID v4 válido.' }),
-  tipo: z.enum(['ingreso', 'gasto'], { message: "El tipo debe ser 'ingreso' o 'gasto'." }),
-  monto: z.number().positive({ message: 'El monto debe ser un número positivo mayor a 0.' }),
-  categoria: z.string().min(1, { message: 'La categoría es obligatoria.' }).trim(),
-  descripcion: z.string().trim().optional(),
+  // Corregido: Bolsillo ID es numérico (entero positivo), no UUID
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número.' })
+    .int('El bolsillo_id debe ser un número entero.')
+    .positive('El bolsillo_id debe ser un número válido.'),
+    
+  tipo: z.enum(['ingreso', 'gasto'], { 
+    message: "El tipo debe ser 'ingreso' o 'gasto'." 
+  }),
+  
+  monto: z.coerce
+    .number({ invalid_type_error: 'El monto debe ser un número.' })
+    .positive({ message: 'El monto debe ser un número positivo mayor a 0.' }),
+    
+  categoria: z.string()
+    .min(1, { message: 'La categoría es obligatoria.' })
+    .trim(),
+    
+  descripcion: z.string()
+    .trim()
+    .optional()
+    .nullable(),
+    
   frecuencia: z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
     message: "Frecuencia no válida. Opciones: 'diario', 'semanal', 'quincenal', 'mensual', 'anual'."
   }),
-  dia_ejecucion: z.number().min(1).max(31, { message: 'El día de ejecución debe estar entre 1 y 31.' })
+  
+  dia_ejecucion: z.coerce
+    .number({ invalid_type_error: 'El día de ejecución debe ser un número.' })
+    .min(1, { message: 'El día de ejecución debe ser al menos 1.' })
+    .max(31, { message: 'El día de ejecución no puede ser mayor a 31.' })
 });
 
 /**
