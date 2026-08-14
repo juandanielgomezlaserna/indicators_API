@@ -16,7 +16,7 @@ const obtenerResumenGeneralService = async (usuarioId) => {
         [usuarioId]
       ),
       pool.query(
-        'SELECT l.id, l.nombre, l.puntos, l.completado, l.idIndicador, l.creado_at FROM public.logro l INNER JOIN public.indicadores i ON l.idIndicador = i.id WHERE i.usuario_id = $1::uuid',
+        'SELECT l.id, l.nombre, l.puntos, l.completado, l."idIndicador", l.creado_at FROM public.logro l INNER JOIN public.indicadores i ON l."idIndicador" = i.id WHERE i.usuario_id = $1::uuid',
         [usuarioId]
       ),
       pool.query(
