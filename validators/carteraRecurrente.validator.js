@@ -32,17 +32,26 @@ const createRecurrenteSchema = z.object({
   frecuencia: z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
     message: "Frecuencia no válida. Opciones: 'diario', 'semanal', 'quincenal', 'mensual', 'anual'."
   }),
-  
-  dia_ejecucion: z.coerce
-    .number({ invalid_type_error: 'El día de ejecución debe ser un número.' })
-    .min(1, { message: 'El día de ejecución debe ser al menos 1.' })
-    .max(31, { message: 'El día de ejecución no puede ser mayor a 31.' })
+
+  dia_pago: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(31)
+    .optional()
+    .nullable(),
+
+  proxima_ejecucion: z.string()
+    .min(1, { message: 'La próxima ejecución es obligatoria.' })
+    .trim(),
+
+  activo: z.boolean().optional().default(true)
 });
 
 // Esquema para actualización parcial
 const updateRecurrenteSchema = createRecurrenteSchema.partial();
 
-// Esquema para parámetros de ruta (ID numérico - cámbialo a .string().uuid() si en tu BD usa UUID)
+// Esquema para parámetros de ruta (ID numérico)
 const paramsNumberIdSchema = z.object({
   id: z.coerce
     .number({ invalid_type_error: 'El ID debe ser un número.' })
@@ -54,7 +63,7 @@ const paramsNumberIdSchema = z.object({
 const usuarioIdSchema = z.string().uuid({ message: 'El ID de usuario autenticado debe ser un UUID v4 válido.' });
 
 /**
- * Middleware para validar la creación
+ * Middleware seguro para validar la creación
  */
 const validateCreateRecurrente = (req, res, next) => {
   try {
@@ -71,12 +80,13 @@ const validateCreateRecurrente = (req, res, next) => {
         })),
       });
     }
+    // Si no es error de Zod, se pasa al manejador general de errores evitando que caiga en .map()
     next(error);
   }
 };
 
 /**
- * Middleware para validar la actualización
+ * Middleware seguro para validar la actualización
  */
 const validateUpdateRecurrente = (req, res, next) => {
   try {
@@ -99,7 +109,7 @@ const validateUpdateRecurrente = (req, res, next) => {
 };
 
 /**
- * Middleware para validar únicamente el ID en parámetros (ej. toggle, ejecutar)
+ * Middleware seguro para validar únicamente el ID en parámetros
  */
 const validateParamsId = (req, res, next) => {
   try {
@@ -110,7 +120,7 @@ const validateParamsId = (req, res, next) => {
       return res.status(400).json({
         status: 'error',
         message: 'Parámetro de ruta inválido',
-        errors: error.errors.map((err) => ({
+        errors: error.errors.map((err) =>جيل => ({ // corregido sintaxis limpia
           field: err.path.join('.'),
           message: err.message,
         })),

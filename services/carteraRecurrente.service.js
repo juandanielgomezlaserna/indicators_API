@@ -5,12 +5,6 @@
 
 const { pool } = require('../config/db');
 
-/**
- * Registrar una transacción recurrente
- * 
- * @param {string} usuarioId - UUID del usuario autenticado (extraído del JWT)
- * @param {Object} data - Datos de la regla recurrente
- */
 const createRecurrente = async (usuarioId, {
   descripcion,
   monto,
@@ -26,7 +20,7 @@ const createRecurrente = async (usuarioId, {
     INSERT INTO public.cartera_recurrentes (
       usuario_id, descripcion, monto, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo
     )
-    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::uuid, $10)
+    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING id, usuario_id, descripcion, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
   `;
 
@@ -39,7 +33,7 @@ const createRecurrente = async (usuarioId, {
     frecuencia,
     dia_pago || null,
     proxima_ejecucion,
-    bolsillo_id,
+    bolsillo_id, // Numérico limpio sin ::uuid
     activo !== undefined ? activo : true
   ];
 
