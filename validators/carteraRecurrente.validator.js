@@ -1,50 +1,61 @@
 /**
  * Validator: Cartera Recurrentes
- * Responsabilidad: Sanitización y validación estricta del payload con Zod.
+ * Responsabilidad: Sanitización y validación estricta de payloads, parámetros y headers con Zod.
  */
 
 const { z } = require('zod');
 
-// Esquema para crear una transacción recurrente
+// Esquema para la creación de una transacción recurrente
 const createRecurrenteSchema = z.object({
-  descripcion: z
-    .string({ required_error: 'La descripción es obligatoria' })
-    .trim()
-    .max(150, 'La descripción no puede superar 150 caracteres'),
-  monto: z.coerce
-    .number({ invalid_type_error: 'El monto debe ser un número' })
-    .positive('El monto debe ser mayor a 0'),
-  tipo: z
-    .string({ required_error: 'El tipo debe ser gasto o ingreso' })
-    .transform((val) => val.toLowerCase())
-    .pipe(
-      z.enum(['gasto', 'ingreso'], {
-        errorMap: () => ({ message: 'El tipo debe ser únicamente "gasto" o "ingreso".' }),
-      })
-    ),
-  categoria: z
-    .string({ required_error: 'La categoría es obligatoria' })
-    .trim()
-    .min(1, 'La categoría no puede estar vacía'),
-  frecuencia: z
-    .string({ required_error: 'La frecuencia es obligatoria' })
-    .transform((val) => val.toLowerCase())
-    .pipe(
-      z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
-        errorMap: () => ({ message: 'Frecuencia no válida' }),
-      })
-    ),
-  dia_pago: z.coerce.number().int().min(1).max(31).optional().nullable(),
-  proxima_ejecucion: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'La fecha de próxima ejecución debe ser una fecha válida (YYYY-MM-DD)',
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número.' })
+    .int('El bolsillo_id debe ser un número entero.')
+    .positive('El bolsillo_id debe ser un número válido.'),
+    
+  tipo: z.enum(['ingreso', 'gasto'], { 
+    message: "El tipo debe ser 'ingreso' o 'gasto'." 
   }),
-  bolsillo_id: z
-    .string({ required_error: 'El bolsillo_id es obligatorio' })
-    .uuid('El bolsillo_id debe ser un UUID válido'),
-  activo: z.boolean().optional().default(true),
+  
+  monto: z.coerce
+    .number({ invalid_type_error: 'El monto debe ser un número.' })
+    .positive({ message: 'El monto debe ser un número positivo mayor a 0.' }),
+    
+  categoria: z.string()
+    .min(1, { message: 'La categoría es obligatoria.' })
+    .trim(),
+    
+  descripcion: z.string()
+    .trim()
+    .optional()
+    .nullable(),
+    
+  frecuencia: z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
+    message: "Frecuencia no válida. Opciones: 'diario', 'semanal', 'quincenal', 'mensual', 'anual'."
+  }),
+  
+  dia_ejecucion: z.coerce
+    .number({ invalid_type_error: 'El día de ejecución debe ser un número.' })
+    .min(1, { message: 'El día de ejecución debe ser al menos 1.' })
+    .max(31, { message: 'El día de ejecución no puede ser mayor a 31.' })
 });
 
-// Middleware para crear recurrente
+// Esquema para actualización parcial
+const updateRecurrenteSchema = createRecurrenteSchema.partial();
+
+// Esquema para parámetros de ruta (ID numérico - cámbialo a .string().uuid() si en tu BD usa UUID)
+const paramsNumberIdSchema = z.object({
+  id: z.coerce
+    .number({ invalid_type_error: 'El ID debe ser un número.' })
+    .int('El ID debe ser un número entero.')
+    .positive('El ID debe ser válido.')
+});
+
+// Esquema para la identidad del usuario autenticado (UUID v4)
+const usuarioIdSchema = z.string().uuid({ message: 'El ID de usuario autenticado debe ser un UUID v4 válido.' });
+
+/**
+ * Middleware para validar la creación
+ */
 const validateCreateRecurrente = (req, res, next) => {
   try {
     req.body = createRecurrenteSchema.parse(req.body);
@@ -64,65 +75,41 @@ const validateCreateRecurrente = (req, res, next) => {
   }
 };
 
-// Esquema para actualizar una transacción recurrente
-const updateRecurrenteSchema = z.object({
-  descripcion: z
-    .string()
-    .trim()
-    .max(150, 'La descripción no puede superar 150 caracteres')
-    .optional(),
-  monto: z.coerce
-    .number({ invalid_type_error: 'El monto debe ser un valor numérico' })
-    .positive('El monto debe ser mayor a 0')
-    .optional(),
-  tipo: z
-    .string()
-    .transform((val) => val.toLowerCase())
-    .pipe(
-      z.enum(['ingreso', 'gasto'], {
-        errorMap: () => ({ message: 'Tipo no válido' }),
-      })
-    )
-    .optional(),
-  categoria: z
-    .string()
-    .trim()
-    .min(1, 'La categoría no puede estar vacía')
-    .optional(),
-  frecuencia: z
-    .string()
-    .transform((val) => val.toLowerCase())
-    .pipe(
-      z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
-        errorMap: () => ({ message: 'Frecuencia no válida' }),
-      })
-    )
-    .optional(),
-  dia_pago: z.coerce.number().int().min(1).max(31).optional().nullable(),
-  proxima_ejecucion: z
-    .string()
-    .refine((val) => !isNaN(Date.parse(val)), {
-      message: 'La fecha debe tener un formato válido (YYYY-MM-DD)',
-    })
-    .optional(),
-  bolsillo_id: z
-    .string()
-    .uuid('El bolsillo_id debe ser un UUID válido')
-    .optional()
-    .nullable(),
-  activo: z.boolean().optional(),
-});
-
-// Middleware para actualizar recurrente
+/**
+ * Middleware para validar la actualización
+ */
 const validateUpdateRecurrente = (req, res, next) => {
   try {
     req.body = updateRecurrenteSchema.parse(req.body);
+    req.params = paramsNumberIdSchema.parse(req.params);
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         status: 'error',
-        message: 'Error de validación en los datos enviados',
+        message: 'Datos de actualización inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Middleware para validar únicamente el ID en parámetros (ej. toggle, ejecutar)
+ */
+const validateParamsId = (req, res, next) => {
+  try {
+    req.params = paramsNumberIdSchema.parse(req.params);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Parámetro de ruta inválido',
         errors: error.errors.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
@@ -134,6 +121,11 @@ const validateUpdateRecurrente = (req, res, next) => {
 };
 
 module.exports = {
+  createRecurrenteSchema,
+  updateRecurrenteSchema,
+  paramsNumberIdSchema,
+  usuarioIdSchema,
   validateCreateRecurrente,
   validateUpdateRecurrente,
+  validateParamsId,
 };
