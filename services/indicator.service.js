@@ -76,8 +76,34 @@ const getIndicatorWithLogros = async (id, usuarioId) => {
   return rows;
 };
 
+const updateIndicator = async (id, usuarioId, indicatorData) => {
+  const { nombre, valor, tipo } = indicatorData;
+
+  const query = `
+    UPDATE public.indicadores 
+    SET 
+      nombre = COALESCE($1, nombre),
+      valor = COALESCE($2, valor),
+      tipo = COALESCE($3, tipo)
+    WHERE id = $4 AND usuario_id = $5::uuid
+    RETURNING id, nombre, valor::FLOAT, tipo, created_at, usuario_id;
+  `;
+
+  const values = [nombre, valor, tipo, id, usuarioId];
+  const { rows } = await pool.query(query, values);
+
+  if (rows.length === 0) {
+    const error = new Error('El indicador no existe o no pertenece al usuario.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 module.exports = { 
   saveIndicator,
   getAllIndicators,
   getIndicatorWithLogros,
+  updateIndicator,
 };

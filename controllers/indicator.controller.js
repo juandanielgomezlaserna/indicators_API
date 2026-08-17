@@ -205,9 +205,27 @@ const getById = async (req, res, next) => {
   }
 };
 
+const update = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsIndicatorSchema.parse(req.params);
+
+    const result = await indicatorService.updateIndicator(id, usuarioId, req.body);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Indicador actualizado correctamente.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   create,
   getAll,
   getById,
-  createIndicatorSchema
+  createIndicatorSchema,
+  update,
 };

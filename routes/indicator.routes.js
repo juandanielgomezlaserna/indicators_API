@@ -9,28 +9,14 @@ const router = express.Router();
 const indicatorController = require('../controllers/indicator.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 
-// Proteger todas las rutas de este módulo con autenticación JWT
 router.use(authMiddleware);
 
-/**
- * @route   GET /api/v1/indicadores
- * @desc    Obtiene el listado general de indicadores
- * @access  Private (JWT)
- */
 router.get('/', indicatorController.getAll);
 
-/**
- * @route   GET /api/v1/indicadores/:id
- * @desc    Obtiene un indicador específico por su ID
- * @access  Private (JWT)
- */
 router.get('/:id', indicatorController.getById);
 
-/**
- * @route   POST /api/v1/indicadores
- * @desc    Crea un nuevo indicador
- * @access  Private (JWT)
- */
 router.post('/', indicatorController.create);
+
+router.put('/:id', indicatorController.update);
 
 module.exports = router;

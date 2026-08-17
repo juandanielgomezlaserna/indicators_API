@@ -19,6 +19,25 @@ const indicatorSchema = z.object({
     .min(1, 'El tipo no puede estar vacío.'),
 });
 
+const updateIndicatorSchema = z.object({
+  nombre: z
+    .string()
+    .trim()
+    .min(1, 'El nombre no puede estar vacío.')
+    .max(100, 'El nombre es demasiado largo.')
+    .optional(),
+
+  valor: z.coerce
+    .number({ invalid_type_error: 'El valor debe ser numérico.' })
+    .optional(),
+
+  tipo: z
+    .string()
+    .trim()
+    .min(1, 'El tipo no puede estar vacío.')
+    .optional(),
+});
+
 /**
  * Middleware para validar el body de la petición
  */
@@ -43,4 +62,25 @@ const validateIndicator = (req, res, next) => {
   }
 };
 
-module.exports = { validateIndicator };
+const validateUpdateIndicator = (req, res, next) => {
+  try {
+    // parse() valida, limpia y deja pasar opcionalmente solo los campos enviados
+    req.body = updateIndicatorSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Error de validación en los datos de actualización del indicador',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+
+    next(error);
+  }
+};
+
+module.exports = { validateIndicator, validateUpdateIndicator };
