@@ -19,4 +19,6 @@ router.post('/', indicatorController.create);
 
 router.put('/:id', indicatorController.update);
 
+router.delete('/:id', indicatorController.remove);
+
 module.exports = router;

@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { deleteIndicator } = require('../services/indicator.service');
 
 /**
  * Esquema de validación estricto para Indicadores
@@ -83,4 +84,35 @@ const validateUpdateIndicator = (req, res, next) => {
   }
 };
 
-module.exports = { validateIndicator, validateUpdateIndicator };
+const deleteIndicatorParamsSchema = z.object({
+  id: z
+    .string({ required_error: 'El ID del indicador es obligatorio.' })
+    .min(1, 'El ID del indicador no puede estar vacío.')
+});
+
+const validateDeleteIndicator = (req, res, next) => {
+  try {
+    // Validamos y limpiamos req.params dejando solo los campos permitidos
+    req.params = deleteIndicatorParamsSchema.parse(req.params);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Error de validación en los parámetros del indicador',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+
+    next(error);
+  }
+};
+
+module.exports = { 
+    validateIndicator,
+    validateUpdateIndicator,
+    deleteIndicator,
+};

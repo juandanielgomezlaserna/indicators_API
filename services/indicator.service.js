@@ -101,9 +101,29 @@ const updateIndicator = async (id, usuarioId, indicatorData) => {
   return rows[0];
 };
 
+const deleteIndicator = async (id, usuarioId) => {
+  const query = `
+    DELETE FROM public.indicadores
+    WHERE id = $1 AND usuario_id = $2::uuid
+    RETURNING id, nombre, valor::FLOAT, tipo, created_at, usuario_id;
+  `;
+
+  const values = [id, usuarioId];
+  const { rows } = await pool.query(query, values);
+
+  if (rows.length === 0) {
+    const error = new Error('El indicador no existe o no pertenece al usuario.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 module.exports = { 
   saveIndicator,
   getAllIndicators,
   getIndicatorWithLogros,
   updateIndicator,
+  deleteIndicator,
 };

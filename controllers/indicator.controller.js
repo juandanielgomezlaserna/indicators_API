@@ -222,10 +222,28 @@ const update = async (req, res, next) => {
   }
 };
 
+const remove = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsIndicatorSchema.parse(req.params);
+
+    const result = await indicatorService.deleteIndicator(id, usuarioId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Indicador eliminado correctamente.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   create,
   getAll,
   getById,
   createIndicatorSchema,
   update,
+  remove,
 };
