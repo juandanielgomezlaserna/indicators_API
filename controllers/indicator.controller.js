@@ -17,7 +17,6 @@ const indicatorService = require('../services/indicator.service');
 const createIndicatorSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del indicador es obligatorio.' }).trim(),
   valor: z.number().nonnegative({ message: 'El valor inicial del indicador debe ser igual o mayor a 0.' }).optional().default(0),
-  tipo: z.string().min(1, { message: 'El tipo de indicador es obligatorio.' }).trim()
 });
 
 /**
@@ -141,7 +140,6 @@ const getById = async (req, res, next) => {
       id: rows[0].indicador_id,
       nombre: rows[0].indicador_nombre,
       valor: rows[0].indicador_valor,
-      tipo: rows[0].indicador_tipo,
       usuario_id: rows[0].indicador_usuario_id,
       created_at: rows[0].indicador_created_at,
       semanas: []

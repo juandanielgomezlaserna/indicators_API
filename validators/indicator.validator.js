@@ -1,8 +1,7 @@
 const { z } = require('zod');
-const { deleteIndicator } = require('../services/indicator.service');
 
 /**
- * Esquema de validación estricto para Indicadores
+ * Esquema de validación estricto para Indicadores (Sin tipo)
  */
 const indicatorSchema = z.object({
   nombre: z
@@ -13,11 +12,6 @@ const indicatorSchema = z.object({
 
   valor: z.coerce
     .number({ required_error: 'El valor debe ser un número.', invalid_type_error: 'El valor debe ser numérico.' }),
-
-  tipo: z
-    .string({ required_error: 'El tipo es obligatorio.' })
-    .trim()
-    .min(1, 'El tipo no puede estar vacío.'),
 });
 
 const updateIndicatorSchema = z.object({
@@ -31,12 +25,6 @@ const updateIndicatorSchema = z.object({
   valor: z.coerce
     .number({ invalid_type_error: 'El valor debe ser numérico.' })
     .optional(),
-
-  tipo: z
-    .string()
-    .trim()
-    .min(1, 'El tipo no puede estar vacío.')
-    .optional(),
 });
 
 /**
@@ -44,7 +32,6 @@ const updateIndicatorSchema = z.object({
  */
 const validateIndicator = (req, res, next) => {
   try {
-    // parse() valida y limpia req.body dejando solo los campos definidos en el esquema
     req.body = indicatorSchema.parse(req.body);
     next();
   } catch (error) {
@@ -58,14 +45,12 @@ const validateIndicator = (req, res, next) => {
         })),
       });
     }
-
     next(error);
   }
 };
 
 const validateUpdateIndicator = (req, res, next) => {
   try {
-    // parse() valida, limpia y deja pasar opcionalmente solo los campos enviados
     req.body = updateIndicatorSchema.parse(req.body);
     next();
   } catch (error) {
@@ -79,7 +64,6 @@ const validateUpdateIndicator = (req, res, next) => {
         })),
       });
     }
-
     next(error);
   }
 };
@@ -92,7 +76,6 @@ const deleteIndicatorParamsSchema = z.object({
 
 const validateDeleteIndicator = (req, res, next) => {
   try {
-    // Validamos y limpiamos req.params dejando solo los campos permitidos
     req.params = deleteIndicatorParamsSchema.parse(req.params);
     next();
   } catch (error) {
@@ -106,7 +89,6 @@ const validateDeleteIndicator = (req, res, next) => {
         })),
       });
     }
-
     next(error);
   }
 };
@@ -114,5 +96,5 @@ const validateDeleteIndicator = (req, res, next) => {
 module.exports = { 
     validateIndicator,
     validateUpdateIndicator,
-    deleteIndicator,
+    validateDeleteIndicator,
 };
