@@ -1,5 +1,5 @@
 /**
- * Service: Indicadores
+ * Service: Indicadores (Actualizado)
  * Responsabilidad: Persistencia, consultas agregadas e interacción con la BD.
  */
 
@@ -50,6 +50,8 @@ const getAllIndicators = async (usuarioId) => {
  * @param {string} usuarioId - UUID del usuario autenticado
  */
 const getIndicatorWithLogros = async (id, usuarioId) => {
+  // CORRECCIÓN: Se usa "idIndicador" entre comillas dobles para que coincida 
+  // exactamente con la estructura real de la tabla 'logro' en Neon.
   const query = `
     SELECT 
       i.id AS indicador_id,
@@ -62,12 +64,12 @@ const getIndicatorWithLogros = async (id, usuarioId) => {
       l.nombre AS logro_nombre,
       l.puntos::INTEGER AS logro_puntos,
       l.completado AS logro_completado,
-      l.created_at AS logro_created_at,
-      DATE_TRUNC('week', l.created_at)::DATE AS semana_inicio
+      l.creado_at AS logro_created_at,
+      DATE_TRUNC('week', l.creado_at)::DATE AS semana_inicio
     FROM public.indicadores i
-    LEFT JOIN public.logro l ON i.id = l.indicador_id
+    LEFT JOIN public.logro l ON i.id = l."idIndicador"
     WHERE i.id = $1 AND i.usuario_id = $2::uuid
-    ORDER BY semana_inicio DESC, l.created_at DESC;
+    ORDER BY semana_inicio DESC, l.creado_at DESC;
   `;
 
   const { rows } = await pool.query(query, [id, usuarioId]);
