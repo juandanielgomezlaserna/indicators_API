@@ -11,7 +11,6 @@ const getAllIndicators = async (usuarioId) => {
       i.id, 
       i.nombre, 
       i.valor::FLOAT, 
-      i.tipo, 
       i.usuario_id, 
       i.created_at,
       COUNT(d.id)::INT AS total_deseos
@@ -39,7 +38,7 @@ const getWishesByIndicator = async (indicadorId, usuarioId) => {
       (
         SELECT row_to_json(i_data)
         FROM (
-          SELECT id, nombre, valor::FLOAT, tipo, usuario_id, created_at 
+          SELECT id, nombre, valor::FLOAT, usuario_id, created_at 
           FROM public.indicadores
           WHERE id = $1 AND usuario_id = $2::uuid
         ) i_data

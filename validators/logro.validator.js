@@ -2,13 +2,17 @@ const { z } = require('zod');
 
 /**
  * Esquema de validación estricto para Logro
+ * (Consistente con la estructura de tabla en Neon: idIndicador, nombre, puntos)
  */
 const logroSchema = z.object({
-  // Cambiamos indicador_id por idIndicador y ajustamos a tipo number (ya que en tu tabla es serial/integer)
+  // Mantenemos la validación de idIndicador como entero/positivo
   idIndicador: z.coerce
-    .number({ invalid_type_error: 'El idIndicador debe ser un número' })
-    .int('El idIndicador debe ser un número entero')
-    .positive('El idIndicador debe ser válido'),
+    .number({ 
+      required_error: 'El ID del indicador es obligatorio',
+      invalid_type_error: 'El ID del indicador debe ser un número' 
+    })
+    .int('El ID del indicador debe ser un número entero')
+    .positive('El ID del indicador debe ser válido'),
 
   nombre: z
     .string({ required_error: 'El nombre es obligatorio' })
@@ -17,7 +21,10 @@ const logroSchema = z.object({
     .max(100, 'El nombre es demasiado largo'),
 
   puntos: z.coerce
-    .number({ invalid_type_error: 'Los puntos deben ser un número' })
+    .number({ 
+      required_error: 'Los puntos son obligatorios',
+      invalid_type_error: 'Los puntos deben ser un número' 
+    })
     .int('Los puntos deben ser un número entero')
     .positive('Los puntos deben ser mayores a 0'),
 });
@@ -27,6 +34,7 @@ const logroSchema = z.object({
  */
 const validarLogro = (req, res, next) => {
   try {
+    // parse() valida y limpia req.body
     req.body = logroSchema.parse(req.body);
     next();
   } catch (error) {
