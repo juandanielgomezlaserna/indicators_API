@@ -14,7 +14,6 @@ const { pool } = require('../config/db');
 const guardarLogro = async (usuarioId, datosLogro) => {
   const { idIndicador, nombre, puntos } = datosLogro;
 
-  // 1. Verificar primero que el indicador pertenezca al usuario en la tabla 'indicadores'
   const checkQuery = `
     SELECT id FROM public.indicadores 
     WHERE id = $1 AND usuario_id = $2::uuid;
@@ -27,7 +26,6 @@ const guardarLogro = async (usuarioId, datosLogro) => {
     throw error;
   }
 
-  // 2. Insertar usando la columna exacta 'idIndicador' en public.logro
   const query = `
     INSERT INTO public.logro ("idIndicador", nombre, puntos, completado, creado_at)
     VALUES ($1, $2, $3, false, NOW()) 
@@ -50,7 +48,6 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener el logro y verificar que pertenece a un indicador del usuario usando 'l.idIndicador'
     const queryLogro = `
       SELECT l.id, l."idIndicador", l.puntos::INTEGER, l.completado
       FROM public.logro l
@@ -74,7 +71,6 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
       throw error;
     }
 
-    // 2. Marcar completado = true
     const updateLogroQuery = `
       UPDATE public.logro 
       SET completado = true 
@@ -83,7 +79,6 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
     `;
     const resUpdateLogro = await client.query(updateLogroQuery, [logroId]);
 
-    // 3. Sumar los puntos al indicador correspondiente
     const queryIndicador = `
       UPDATE public.indicadores 
       SET valor = valor + $1 
@@ -108,7 +103,7 @@ const chulearLogroYSumarPuntos = async (logroId, usuarioId) => {
  * 
  * @param {string} usuarioId - UUID del usuario autenticado
  */
-const getAllLogros = async (usuarioId) => {
+const getAllLogrosByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
       l.id, l.nombre, l.puntos::INTEGER, l.completado, 
@@ -140,6 +135,7 @@ const getAllLogrosPendientes = async (usuarioId) => {
     FROM public.logro l
     INNER JOIN public.indicadores i ON l."idIndicador" = i.id
     WHERE i.usuario_id = $1::uuid
+      AND l.completado = false
       AND l.creado_at >= DATE_TRUNC('week', CURRENT_DATE)::date
       AND l.creado_at <= (DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '6 days')::date
     ORDER BY l.id DESC;
@@ -175,6 +171,13 @@ const getAllLogrosByWeeks = async (usuarioId) => {
   return rows;
 };
 
+/**
+ * Edita un logro de forma dinámica y segura
+ * 
+ * @param {string|number} logroId - ID del logro a editar
+ * @param {string} usuarioId - UUID del usuario autenticado
+ * @param {Object} datosActualizacion - Campos a actualizar (idIndicador, nombre, puntos)
+ */
 const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
   const { idIndicador, nombre, puntos } = datosActualizacion;
 
@@ -183,7 +186,6 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Verificar que el logro pertenezca a un indicador del usuario y bloquear la fila para evitar concurrencia
     const queryVerificar = `
       SELECT l.id, l."idIndicador"
       FROM public.logro l
@@ -199,7 +201,6 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
       throw error;
     }
 
-    // 2. Si se va a cambiar de indicador, verificar que el nuevo indicador también pertenezca al usuario
     if (idIndicador !== undefined) {
       const queryIndicador = `
         SELECT id FROM public.indicadores 
@@ -214,7 +215,6 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
       }
     }
 
-    // 3. Construir la consulta de actualización dinámica de forma segura
     const camposPermitidos = [];
     const valores = [];
     let contadorParametros = 1;
@@ -232,7 +232,6 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
       valores.push(puntos);
     }
 
-    // Si no se envió ningún campo para actualizar
     if (camposPermitidos.length === 0) {
       const error = new Error('No se proporcionaron campos válidos para actualizar.');
       error.statusCode = 400;
@@ -264,7 +263,7 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
 module.exports = {
   guardarLogro,
   chulearLogroYSumarPuntos,
-  getAllLogros,
+  getAllLogrosByUsuario,
   getAllLogrosPendientes,
   getAllLogrosByWeeks,
   editarLogro,
