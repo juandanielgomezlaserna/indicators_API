@@ -139,8 +139,7 @@ const getAllLogrosPendientes = async (usuarioId) => {
       i.nombre AS nombre_indicador
     FROM public.logro l
     INNER JOIN public.indicadores i ON l."idIndicador" = i.id
-    WHERE l.completado = false
-      AND i.usuario_id = $1::uuid
+    WHERE i.usuario_id = $1::uuid
       AND l.creado_at >= DATE_TRUNC('week', CURRENT_DATE)::date
       AND l.creado_at <= (DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '6 days')::date
     ORDER BY l.id DESC;
