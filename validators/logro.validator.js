@@ -53,4 +53,52 @@ const validarLogro = (req, res, next) => {
   }
 };
 
-module.exports = { validarLogro };
+const updateLogroSchema = z.object({
+  idIndicador: z.coerce
+    .number({ invalid_type_error: 'El ID del indicador debe ser un número' })
+    .int('El ID del indicador debe ser un número entero')
+    .positive('El ID del indicador debe ser válido')
+    .optional(),
+
+  nombre: z
+    .string()
+    .trim()
+    .min(1, 'El nombre no puede estar vacío')
+    .max(100, 'El nombre es demasiado largo')
+    .optional(),
+
+  puntos: z.coerce
+    .number({ invalid_type_error: 'Los puntos deben ser un número' })
+    .int('Los puntos deben ser un número entero')
+    .positive('Los puntos deben ser mayores a 0')
+    .optional(),
+});
+
+/**
+ * Middleware para validar el body de la petición de actualización de logro
+ */
+const validarUpdateLogro = (req, res, next) => {
+  try {
+    // parse() valida y limpia req.body
+    req.body = updateLogroSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Error de validación en los datos de actualización del logro',
+        errors: error.errors.map((err) => ({
+          campo: err.path.join('.'),
+          mensaje: err.message,
+        })),
+      });
+    }
+
+    next(error);
+  }
+};
+
+module.exports = {
+    validarLogro,
+    validarUpdateLogro,
+};

@@ -245,11 +245,30 @@ const getAllLogrosWeeks = async (req, res, next) => {
   }
 };
 
+const updateLogro = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsNumberIdSchema.parse(req.params);
+    const datosActualizacion = updateLogroSchema.parse(req.body);
+
+    const logroActualizado = await logroService.editarLogro(id, usuarioId, datosActualizacion);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Logro actualizado correctamente.',
+      data: logroActualizado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   create,
   checkLogro,
   getAll,
   getAllPending,
   getAllLogrosWeeks,
-  createLogroSchema
+  createLogroSchema,
+  updateLogro,
 };
