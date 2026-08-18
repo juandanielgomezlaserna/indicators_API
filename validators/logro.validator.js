@@ -101,4 +101,5 @@ const validarUpdateLogro = (req, res, next) => {
 module.exports = {
     validarLogro,
     validarUpdateLogro,
+    updateLogroSchema,
 };

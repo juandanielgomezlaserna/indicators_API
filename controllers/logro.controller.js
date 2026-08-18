@@ -6,6 +6,7 @@
 
 const { z } = require('zod');
 const logroService = require('../services/logro.service');
+const { updateLogroSchema } = require('../validators/logro.validator');
 
 // -----------------------------------------------------------------------------
 // Validadores (Zod)
