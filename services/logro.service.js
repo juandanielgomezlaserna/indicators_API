@@ -136,8 +136,7 @@ const getAllLogrosPendientes = async (usuarioId) => {
       l.completado, 
       l."idIndicador", 
       l.creado_at,
-      i.nombre AS nombre_indicador,
-      i.idIndicator
+      i.nombre AS nombre_indicador
     FROM public.logro l
     INNER JOIN public.indicadores i ON l."idIndicador" = i.id
     WHERE i.usuario_id = $1::uuid
