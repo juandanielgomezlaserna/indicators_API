@@ -22,6 +22,6 @@ router.get('/pendiente', logroController.getAllPending);
 
 router.get('/', logroController.getAll);
 
-router.put('/:id', validarUpdateLogro, logroController.updateLogro);
+router.put('/:id', logroController.updateLogro);
 
 module.exports = router;
