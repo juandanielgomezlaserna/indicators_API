@@ -16,7 +16,7 @@ const obtenerResumenGeneralService = async (usuarioId) => {
       deudasRes,
       movimientosRes
     ] = await Promise.all([
-      pool.query('SELECT id, nombre, valor, tipo, created_at FROM public.indicadores WHERE usuario_id = $1::uuid', [usuarioId]),
+      pool.query('SELECT id, nombre, valor, created_at FROM public.indicadores WHERE usuario_id = $1::uuid', [usuarioId]),
       pool.query('SELECT l.id, l.nombre, l.puntos, l.completado, l."idIndicador", l.creado_at FROM public.logro l INNER JOIN public.indicadores i ON l."idIndicador" = i.id WHERE i.usuario_id = $1::uuid', [usuarioId]),
       pool.query('SELECT d.id, d.nombre, d.indicador_id, d.created_at FROM public.deseos d INNER JOIN public.indicadores i ON d.indicador_id = i.id WHERE i.usuario_id = $1::uuid', [usuarioId]),
       pool.query('SELECT id, nombre, tipo, balance, created_at FROM public.cartera_bolsillos WHERE usuario_id = $1::uuid', [usuarioId]),
