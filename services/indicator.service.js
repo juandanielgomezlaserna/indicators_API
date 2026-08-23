@@ -33,7 +33,7 @@ const saveIndicator = async (usuarioId, indicatorData) => {
  */
 const getAllIndicators = async (usuarioId) => {
   const query = `
-    SELECT id, nombre, valor::FLOAT, created_at, usuario_id
+    SELECT id, nombre, valor::FLOAT, icono, created_at, usuario_id
     FROM public.indicadores 
     WHERE usuario_id = $1::uuid
     ORDER BY created_at DESC;
