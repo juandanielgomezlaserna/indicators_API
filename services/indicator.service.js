@@ -74,18 +74,19 @@ const getIndicatorWithLogros = async (id, usuarioId) => {
 };
 
 const updateIndicator = async (id, usuarioId, indicatorData) => {
-  const { nombre, valor } = indicatorData;
+  const { nombre, valor, icono } = indicatorData;
 
   const query = `
     UPDATE public.indicadores 
     SET 
       nombre = COALESCE($1, nombre),
-      valor = COALESCE($2, valor)
-    WHERE id = $3 AND usuario_id = $4::uuid
+      valor = COALESCE($2, valor),
+      icono = COALESCE($3, icono)
+    WHERE id = $4 AND usuario_id = $5::uuid
     RETURNING id, nombre, valor::FLOAT, created_at, usuario_id;
   `;
 
-  const values = [nombre, valor, id, usuarioId];
+  const values = [nombre, valor, icono, id, usuarioId];
   const { rows } = await pool.query(query, values);
 
   if (rows.length === 0) {
