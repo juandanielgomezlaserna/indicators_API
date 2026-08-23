@@ -9,6 +9,12 @@ const indicatorSchema = z.object({
     .trim()
     .min(1, 'El nombre no puede estar vacío.')
     .max(100, 'El nombre es demasiado largo.'),
+  
+  icono: z
+    .string({ required_error: 'El icono es obligatorio.' })
+    .trim()
+    .min(1, 'El icono no puede estar vacío.')
+    .max(100, 'El icono es demasiado largo.'),
 
   valor: z.coerce
     .number({ required_error: 'El valor debe ser un número.', invalid_type_error: 'El valor debe ser numérico.' }),

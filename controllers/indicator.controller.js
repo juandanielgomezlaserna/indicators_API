@@ -16,6 +16,7 @@ const indicatorService = require('../services/indicator.service');
  */
 const createIndicatorSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del indicador es obligatorio.' }).trim(),
+  icono: z.string().min(1, { message: 'El icono del indicador es obligatorio.' }).trim(),
   valor: z.number().nonnegative({ message: 'El valor inicial del indicador debe ser igual o mayor a 0.' }).optional().default(0),
 });
 

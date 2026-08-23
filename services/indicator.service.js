@@ -12,15 +12,15 @@ const { pool } = require('../config/db');
  * @param {Object} indicatorData - Datos del indicador (nombre, valor)
  */
 const saveIndicator = async (usuarioId, indicatorData) => {
-  const { nombre, valor } = indicatorData;
+  const { nombre, valor, icono } = indicatorData;
 
   const query = `
-    INSERT INTO public.indicadores (nombre, valor, created_at, usuario_id)
-    VALUES ($1, $2, NOW(), $3::uuid)
+    INSERT INTO public.indicadores (nombre, valor, icono, created_at, usuario_id)
+    VALUES ($1, $2, $3, NOW(), $4::uuid)
     RETURNING id, nombre, valor::FLOAT, created_at, usuario_id;
   `;
 
-  const values = [nombre, valor, usuarioId];
+  const values = [nombre, valor, icono, usuarioId];
   const { rows } = await pool.query(query, values);
 
   return rows[0];
