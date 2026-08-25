@@ -24,4 +24,6 @@ router.get('/', logroController.getAll);
 
 router.put('/:id', logroController.updateLogro);
 
+router.delete('/:id', logroController.removeLogro);
+
 module.exports = router;

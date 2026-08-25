@@ -264,6 +264,23 @@ const updateLogro = async (req, res, next) => {
   }
 };
 
+const removeLogro = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = paramsNumberIdSchema.parse(req.params);
+
+    const logroEliminado = await logroService.eliminarLogro(id, usuarioId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Logro eliminado correctamente.',
+      data: logroEliminado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   create,
   checkLogro,
@@ -272,4 +289,5 @@ module.exports = {
   getAllLogrosWeeks,
   createLogroSchema,
   updateLogro,
+  removeLogro,
 };

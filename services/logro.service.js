@@ -259,6 +259,47 @@ const editarLogro = async (logroId, usuarioId, datosActualizacion) => {
   }
 };
 
+const eliminarLogro = async (logroId, usuarioId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificamos que el logro exista y pertenezca a un indicador del usuario con bloqueo FOR UPDATE
+    const queryVerificar = `
+      SELECT l.id 
+      FROM public.logro l
+      INNER JOIN public.indicadores i ON l."idIndicador" = i.id
+      WHERE l.id = $1 AND i.usuario_id = $2::uuid
+      FOR UPDATE;
+    `;
+    const resVerificar = await client.query(queryVerificar, [logroId, usuarioId]);
+
+    if (resVerificar.rows.length === 0) {
+      const error = new Error('El logro no existe o no pertenece a un indicador del usuario.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 2. Ejecutamos la eliminación y retornamos los datos del logro eliminado
+    const queryDelete = `
+      DELETE FROM public.logro 
+      WHERE id = $1
+      RETURNING id, "idIndicador", nombre, puntos::INTEGER, completado, creado_at;
+    `;
+    const { rows } = await client.query(queryDelete, [logroId]);
+
+    await client.query('COMMIT');
+    return rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   guardarLogro,
   chulearLogroYSumarPuntos,
@@ -266,4 +307,5 @@ module.exports = {
   getAllLogrosPendientes,
   getAllLogrosByWeeks,
   editarLogro,
+  eliminarLogro,
 };
