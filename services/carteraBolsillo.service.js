@@ -114,8 +114,56 @@ const editarBolsillo = async (bolsilloId, usuarioId, datosActualizacion) => {
   }
 };
 
+/**
+ * Service: Eliminar un bolsillo de forma segura validando que pertenezca al usuario
+ * 
+ * @param {string|number} bolsilloId - ID del bolsillo a eliminar
+ * @param {string} usuarioId - UUID del usuario autenticado
+ * @returns {Promise<Object>} Datos del bolsillo eliminado
+ */
+const eliminarBolsillo = async (bolsilloId, usuarioId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificamos que el bolsillo exista, pertenezca al usuario y aplicamos bloqueo FOR UPDATE
+    const queryVerificar = `
+      SELECT id 
+      FROM public.cartera_bolsillos 
+      WHERE id = $1 AND usuario_id = $2::uuid
+      FOR UPDATE;
+    `;
+    const resVerificar = await client.query(queryVerificar, [bolsilloId, usuarioId]);
+
+    if (resVerificar.rows.length === 0) {
+      const error = new Error('El bolsillo no existe o no pertenece al usuario.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 2. Ejecutamos la eliminación y retornamos el registro eliminado
+    const queryDelete = `
+      DELETE FROM public.cartera_bolsillos 
+      WHERE id = $1 AND usuario_id = $2::uuid
+      RETURNING id, usuario_id, nombre, tipo, balance::FLOAT, created_at;
+    `;
+    const { rows } = await client.query(queryDelete, [bolsilloId, usuarioId]);
+
+    await client.query('COMMIT');
+    return rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createBolsillo,
   getBolsillosByUsuario,
   editarBolsillo,
+  eliminarBolsillo,
 };

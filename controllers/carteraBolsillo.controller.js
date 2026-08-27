@@ -142,9 +142,35 @@ const updateBolsillo = async (req, res, next) => {
   }
 };
 
+const deleteBolsillo = async (req, res, next) => {
+  try {
+    // 1. Validar identidad extraída del JWT
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+
+    // 2. Validar el ID que viene por los parámetros de la ruta
+    const { id } = paramsNumberIdSchema.parse(req.params);
+
+    // 3. Ejecutar la lógica en la capa de servicio
+    const bolsilloEliminado = await carteraBolsilloService.eliminarBolsillo(
+      id,
+      usuarioId
+    );
+
+    // 4. Respuesta estandarizada HTTP 200 OK
+    return res.status(200).json({
+      status: 'success',
+      message: 'Bolsillo eliminado correctamente.',
+      data: bolsilloEliminado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createBolsillo,
   getBolsillos,
   createBolsilloSchema,
   updateBolsillo,
+  deleteBolsillo,
 };

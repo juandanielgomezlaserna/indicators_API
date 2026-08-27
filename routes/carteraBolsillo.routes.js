@@ -33,4 +33,11 @@ router.get('/', carteraBolsilloController.getBolsillos);
  */
 router.put('/:id', carteraBolsilloController.updateBolsillo);
 
+/**
+ * @route   DELETE /api/v1/cartera/bolsillos/:id
+ * @desc    Elimina un bolsillo existente del usuario autenticado
+ * @access  Private (JWT)
+ */
+router.delete('/:id', carteraBolsilloController.deleteBolsillo);
+
 module.exports = router;
