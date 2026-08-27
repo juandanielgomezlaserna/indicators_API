@@ -26,4 +26,11 @@ router.post('/', carteraBolsilloController.createBolsillo);
  */
 router.get('/', carteraBolsilloController.getBolsillos);
 
+/**
+ * @route   PUT /api/v1/cartera/bolsillos/:id
+ * @desc    Actualiza un bolsillo existente del usuario autenticado
+ * @access  Private (JWT)
+ */
+router.put('/:id', carteraBolsilloController.updateBolsillo);
+
 module.exports = router;
