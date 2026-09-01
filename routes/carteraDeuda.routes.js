@@ -45,4 +45,6 @@ router.post('/:id/abono', validateAbonarDeuda, carteraDeudaController.abonarDeud
  */
 router.put('/:id', validateUpdateDeuda, carteraDeudaController.updateDeuda);
 
+router.delete('/:id', validateUpdateDeuda, carteraDeudaController.eliminarDeuda);
+
 module.exports = router;

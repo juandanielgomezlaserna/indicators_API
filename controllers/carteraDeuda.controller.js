@@ -99,9 +99,27 @@ const updateDeuda = async (req, res, next) => {
   }
 };
 
+const eliminarDeuda = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = req.params;
+
+    const deudaEliminada = await carteraDeudaService.eliminarDeuda(id, usuarioId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Deuda eliminada correctamente.',
+      data: deudaEliminada,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createDeuda,
   abonarDeuda,
   getDeudas,
-  updateDeuda
+  updateDeuda,
+  eliminarDeuda,
 };

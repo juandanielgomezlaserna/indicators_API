@@ -213,9 +213,28 @@ const editarDeuda = async (deudaId, usuarioId, datosActualizacion) => {
   }
 };
 
+const eliminarDeuda = async (deudaId, usuarioId) => {
+  const query = `
+    DELETE FROM public.cartera_deudas
+    WHERE id = $1 AND usuario_id = $2::uuid
+    RETURNING id, acreedor, monto_inicial::FLOAT, monto_pendiente::FLOAT;
+  `;
+
+  const { rows } = await pool.query(query, [deudaId, usuarioId]);
+
+  if (rows.length === 0) {
+    const error = new Error('La deuda no existe o no pertenece al usuario.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 module.exports = {
   createDeuda,
   abonarDeuda,
   getDeudasByUsuario,
   editarDeuda,
+  eliminarDeuda,
 };
