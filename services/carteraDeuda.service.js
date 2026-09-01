@@ -127,8 +127,95 @@ const getDeudasByUsuario = async (usuarioId) => {
   return rows;
 };
 
+/**
+ * Edita una deuda de forma dinámica y segura validando que pertenezca al usuario
+ * 
+ * @param {string|number} deudaId - ID de la deuda a editar
+ * @param {string} usuarioId - UUID del usuario autenticado
+ * @param {Object} datosActualizacion - Campos a actualizar (acreedor_deudor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago)
+ */
+const editarDeuda = async (deudaId, usuarioId, datosActualizacion) => {
+  const { acreedor_deudor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago } = datosActualizacion;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificamos que la deuda exista y pertenezca al usuario con bloqueo FOR UPDATE
+    const queryVerificar = `
+      SELECT id 
+      FROM public.cartera_deudas 
+      WHERE id = $1 AND usuario_id = $2::uuid
+      FOR UPDATE;
+    `;
+    const resVerificar = await client.query(queryVerificar, [deudaId, usuarioId]);
+
+    if (resVerificar.rows.length === 0) {
+      const error = new Error('La deuda no existe o no pertenece al usuario.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 2. Construcción dinámica de los campos a actualizar
+    const camposPermitidos = [];
+    const valores = [];
+    let contadorParametros = 1;
+
+    if (acreedor_deudor !== undefined) {
+      camposPermitidos.push(`acreedor = $${contadorParametros++}`);
+      valores.push(acreedor_deudor);
+    }
+    if (tipo !== undefined) {
+      camposPermitidos.push(`tipo = $${contadorParametros++}`);
+      valores.push(tipo);
+    }
+    if (monto_inicial !== undefined) {
+      camposPermitidos.push(`monto_inicial = $${contadorParametros++}`);
+      valores.push(monto_inicial);
+    }
+    if (monto_pendiente !== undefined) {
+      camposPermitidos.push(`monto_pendiente = $${contadorParametros++}`);
+      valores.push(monto_pendiente);
+    }
+    if (fecha_limite_pago !== undefined) {
+      camposPermitidos.push(`fecha_limite_pago = $${contadorParametros++}`);
+      valores.push(fecha_limite_pago);
+    }
+
+    if (camposPermitidos.length === 0) {
+      const error = new Error('No se proporcionaron campos válidos para actualizar.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Añadimos el ID de la deuda y el usuario al final del arreglo de valores para la cláusula WHERE
+    valores.push(deudaId);
+    valores.push(usuarioId);
+
+    const queryUpdate = `
+      UPDATE public.cartera_deudas 
+      SET ${camposPermitidos.join(', ')}
+      WHERE id = $${contadorParametros++} AND usuario_id = $${contadorParametros}::uuid
+      RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, created_at;
+    `;
+
+    const { rows } = await client.query(queryUpdate, valores);
+
+    await client.query('COMMIT');
+    return rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createDeuda,
   abonarDeuda,
-  getDeudasByUsuario
+  getDeudasByUsuario,
+  editarDeuda
 };

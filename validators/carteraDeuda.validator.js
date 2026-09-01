@@ -44,6 +44,23 @@ const paramsNumberIdSchema = z.object({
     .positive('El ID de la deuda debe ser válido')
 });
 
+const updateDeudaSchema = z.object({
+  acreedor_deudor: z.string().min(1, { message: 'El nombre del acreedor no puede estar vacío.' }).trim().optional(),
+  tipo: z.enum(['no_obligatoria', 'cobrar', 'pagar'], { 
+    message: "El tipo debe ser válido ('no_obligatoria', 'cobrar', 'pagar')." 
+  }).optional(),
+  monto_inicial: z.number().positive({ message: 'El monto inicial debe ser mayor a 0.' }).optional(),
+  monto_pendiente: z.number().nonnegative({ message: 'El monto pendiente no puede ser negativo.' }).optional(),
+  fecha_limite_pago: z.string().optional().nullable(),
+  bolsillo_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_id debe ser un número' })
+    .int('El bolsillo_id debe ser un número entero')
+    .positive('El bolsillo_id debe ser válido')
+    .optional()
+}).refine(data => Object.keys(data).length > 0, {
+  message: 'Se debe proporcionar al menos un campo para actualizar.'
+});
+
 // Esquema de validación para el usuario autenticado (UUID v4)
 const usuarioIdSchema = z.string().uuid({ message: 'El ID de usuario debe ser un UUID v4 válido.' });
 
@@ -92,6 +109,26 @@ const validateAbonarDeuda = (req, res, next) => {
   }
 };
 
+const validateUpdateDeuda = (req, res, next) => {
+  try {
+    req.body = updateDeudaSchema.parse(req.body);
+    req.params = paramsNumberIdSchema.parse(req.params);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de actualización de deuda inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   createDeudaSchema,
   abonarDeudaSchema,
@@ -99,4 +136,5 @@ module.exports = {
   usuarioIdSchema,
   validateCreateDeuda,
   validateAbonarDeuda,
+  validateUpdateDeuda
 };
