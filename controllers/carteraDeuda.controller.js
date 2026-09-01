@@ -72,8 +72,36 @@ const getDeudas = async (req, res, next) => {
   }
 };
 
+const updateDeuda = async (req, res, next) => {
+  try {
+    // 1. Validar identidad extraída del JWT
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+
+    // 2. Parámetros y body validados por el middleware validateUpdateDeuda
+    const { id } = req.params;
+    const datosActualizacion = req.body;
+
+    // 3. Ejecutar la lógica en la capa de servicio
+    const deudaActualizada = await carteraDeudaService.editarDeuda(
+      id,
+      usuarioId,
+      datosActualizacion
+    );
+
+    // 4. Respuesta estandarizada HTTP 200 OK
+    return res.status(200).json({
+      status: 'success',
+      message: 'Deuda actualizada correctamente.',
+      data: deudaActualizada
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createDeuda,
   abonarDeuda,
-  getDeudas
+  getDeudas,
+  updateDeuda
 };

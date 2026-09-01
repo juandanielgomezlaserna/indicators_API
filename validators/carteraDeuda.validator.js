@@ -136,5 +136,5 @@ module.exports = {
   usuarioIdSchema,
   validateCreateDeuda,
   validateAbonarDeuda,
-  validateUpdateDeuda
+  validateUpdateDeuda,
 };

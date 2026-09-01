@@ -217,5 +217,5 @@ module.exports = {
   createDeuda,
   abonarDeuda,
   getDeudasByUsuario,
-  editarDeuda
+  editarDeuda,
 };
