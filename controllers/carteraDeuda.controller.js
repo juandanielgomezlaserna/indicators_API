@@ -38,13 +38,14 @@ const createDeuda = async (req, res, next) => {
 const abonarDeuda = async (req, res, next) => {
   try {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
-    // req.params.id y req.body ya vienen validados por el middleware validateAbonarDeuda
     const { id } = req.params;
-    const resultado = await carteraDeudaService.abonarDeuda(id, usuarioId, req.body);
+    
+    // Ojo aquí: el orden debe coincidir exactamente con el service: (usuarioId, deudaId, payload)
+    const resultado = await carteraDeudaService.abonarDeuda(usuarioId, id, req.body);
 
     return res.status(200).json({
       status: 'success',
-      message: 'Abono realizado exitosamente.',
+      message: 'Abono realizado y bolsillo actualizado exitosamente.',
       data: resultado
     });
   } catch (error) {

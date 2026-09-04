@@ -8,23 +8,80 @@ const { pool } = require('../config/db');
 /**
  * Crea una nueva deuda asociada al usuario autenticado
  */
-const createDeuda = async (usuarioId, { acreedor_deudor, tipo, monto_total, monto_pendiente, fecha_limite_pago }) => {
-  const saldoPendiente = monto_pendiente !== undefined ? monto_pendiente : monto_total;
+const createDeuda = async (usuarioId, { acreedor_deudor, tipo, monto_total, monto_pendiente, fecha_limite_pago, bolsillo_id }) => {
+  const client = await pool.connect();
 
-  const query = `
-    INSERT INTO public.cartera_deudas (
-      usuario_id, acreedor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago, created_at
-    )
-    VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
-    RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, created_at;
-  `;
+  try {
+    await client.query('BEGIN');
 
-  // Usamos acreedor_deudor para mapearlo a la columna 'acreedor' de la BD
-  const values = [usuarioId, acreedor_deudor, tipo || 'no_obligatoria', monto_total, saldoPendiente, fecha_limite_pago || null];
-  const { rows } = await pool.query(query, values);
-  return rows[0];
+    const saldoPendiente = monto_pendiente !== undefined ? monto_pendiente : monto_total;
+    const tipoDeuda = tipo || 'no_obligatoria';
+
+    // 1. Insertar la deuda registrando el bolsillo_id opcional
+    const query = `
+      INSERT INTO public.cartera_deudas (
+        usuario_id, acreedor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago, bolsillo_id, created_at
+      )
+      VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, NOW())
+      RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, bolsillo_id, created_at;
+    `;
+
+    const values = [
+      usuarioId, 
+      acreedor_deudor, 
+      tipoDeuda, 
+      monto_total, 
+      saldoPendiente, 
+      fecha_limite_pago || null, 
+      bolsillo_id || null
+    ];
+    
+    const { rows } = await client.query(query, values);
+    const nuevaDeuda = rows[0];
+
+    // 2. Si se indica un bolsillo, ajustamos el balance según el tipo de deuda:
+    // - 'pagar' (adquieres una deuda / te prestan): el dinero ingresa al bolsillo (+ monto_total)
+    // - 'cobrar' (prestas dinero / te deben): el dinero sale del bolsillo (- monto_total)
+    // - 'no_obligatoria': por defecto no afecta el bolsillo al crear, o puedes ajustarlo si tu regla de negocio lo requiere.
+    if (bolsillo_id) {
+      let ajusteBalance = 0;
+      if (tipoDeuda === 'pagar') {
+        ajusteBalance = monto_total;
+      } else if (tipoDeuda === 'cobrar') {
+        ajusteBalance = -monto_total;
+      }
+
+      if (ajusteBalance !== 0) {
+        const bolsilloRes = await client.query(
+          `SELECT id, balance::FLOAT FROM public.cartera_bolsillos WHERE id = $1 AND usuario_id = $2::uuid FOR UPDATE;`,
+          [bolsillo_id, usuarioId]
+        );
+
+        if (bolsilloRes.rows.length === 0) {
+          const error = new Error('El bolsillo seleccionado no existe o no pertenece al usuario.');
+          error.statusCode = 404;
+          throw error;
+        }
+
+        const nuevoBalanceBolsillo = bolsilloRes.rows[0].balance + ajusteBalance;
+
+        await client.query(
+          `UPDATE public.cartera_bolsillos SET balance = $1 WHERE id = $2 AND usuario_id = $3::uuid;`,
+          [nuevoBalanceBolsillo, bolsillo_id, usuarioId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return nuevaDeuda;
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
-
 /**
  * Registra un abono a una deuda y actualiza el bolsillo + movimientos (Transacción ACID)
  */
@@ -117,7 +174,7 @@ const getDeudasByUsuario = async (usuarioId) => {
     SELECT 
       id, usuario_id, acreedor, tipo, 
       monto_inicial::FLOAT, monto_pendiente::FLOAT, 
-      fecha_limite_pago, created_at
+      fecha_limite_pago, bolsillo_id, created_at
     FROM public.cartera_deudas
     WHERE usuario_id = $1::uuid 
       AND monto_pendiente > 0
@@ -135,7 +192,7 @@ const getDeudasByUsuario = async (usuarioId) => {
  * @param {Object} datosActualizacion - Campos a actualizar (acreedor_deudor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago)
  */
 const editarDeuda = async (deudaId, usuarioId, datosActualizacion) => {
-  const { acreedor_deudor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago } = datosActualizacion;
+  const { acreedor_deudor, tipo, monto_inicial, monto_pendiente, fecha_limite_pago, bolsillo_id } = datosActualizacion;
 
   const client = await pool.connect();
 
@@ -182,6 +239,10 @@ const editarDeuda = async (deudaId, usuarioId, datosActualizacion) => {
       camposPermitidos.push(`fecha_limite_pago = $${contadorParametros++}`);
       valores.push(fecha_limite_pago);
     }
+    if (bolsillo_id !== undefined) {
+      camposPermitidos.push(`bolsillo_id = $${contadorParametros++}`);
+      valores.push(bolsillo_id);
+    }
 
     if (camposPermitidos.length === 0) {
       const error = new Error('No se proporcionaron campos válidos para actualizar.');
@@ -197,7 +258,7 @@ const editarDeuda = async (deudaId, usuarioId, datosActualizacion) => {
       UPDATE public.cartera_deudas 
       SET ${camposPermitidos.join(', ')}
       WHERE id = $${contadorParametros++} AND usuario_id = $${contadorParametros}::uuid
-      RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, created_at;
+      RETURNING id, usuario_id, acreedor, tipo, monto_inicial::FLOAT, monto_pendiente::FLOAT, fecha_limite_pago, bolsillo_id, created_at;
     `;
 
     const { rows } = await client.query(queryUpdate, valores);
@@ -217,7 +278,7 @@ const eliminarDeuda = async (deudaId, usuarioId) => {
   const query = `
     DELETE FROM public.cartera_deudas
     WHERE id = $1 AND usuario_id = $2::uuid
-    RETURNING id, acreedor, monto_inicial::FLOAT, monto_pendiente::FLOAT;
+    RETURNING id, acreedor, monto_inicial::FLOAT, monto_pendiente::FLOAT, bolsillo_id;
   `;
 
   const { rows } = await pool.query(query, [deudaId, usuarioId]);

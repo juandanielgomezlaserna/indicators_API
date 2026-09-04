@@ -11,12 +11,15 @@ const createMetaSchema = z.object({
   monto_objetivo: z.coerce.number().positive({ message: 'El monto objetivo debe ser mayor a 0.' }),
   fecha_limite: z.string().datetime({ message: 'La fecha límite debe ser una fecha ISO 8601 válida.' }).optional().nullable(),
   monto_actual: z.coerce.number().nonnegative({ message: 'El monto inicial no puede ser negativo.' }).optional().default(0),
-  bolsillo_origen_id: z.coerce
-    .number({ invalid_type_error: 'El bolsillo_origen_id debe ser un número' })
-    .int('El bolsillo_origen_id debe ser un número entero')
-    .positive('El bolsillo_origen_id debe ser válido')
-    .optional()
-    .nullable()
+  bolsillo_origen_id: z.preprocess(
+    (val) => (val === '' || val === null ? undefined : val),
+    z.coerce
+      .number({ invalid_type_error: 'El bolsillo_origen_id debe ser un número' })
+      .int('El bolsillo_origen_id debe ser un número entero')
+      .positive('El bolsillo_origen_id debe ser válido')
+      .optional()
+      .nullable()
+  )
 });
 
 const updateMetaSchema = z.object({
