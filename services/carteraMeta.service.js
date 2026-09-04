@@ -143,8 +143,118 @@ const getMetasByUsuario = async (usuarioId) => {
   return rows;
 };
 
+const editarMeta = async (metaId, usuarioId, datosActualizacion) => {
+  const { nombre, monto_objetivo, monto_actual, bolsillo_origen_id, completado } = datosActualizacion;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificamos que la meta exista y pertenezca al usuario con bloqueo FOR UPDATE
+    const queryVerificar = `
+      SELECT id, monto_objetivo::FLOAT, monto_actual::FLOAT 
+      FROM public.cartera_metas 
+      WHERE id = $1 AND usuario_id = $2::uuid
+      FOR UPDATE;
+    `;
+    const resVerificar = await client.query(queryVerificar, [metaId, usuarioId]);
+
+    if (resVerificar.rows.length === 0) {
+      const error = new Error('La meta no existe o no pertenece al usuario.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const metaActual = resVerificar.rows[0];
+
+    // 2. Construcción dinámica de los campos a actualizar
+    const camposPermitidos = [];
+    const valores = [];
+    let contadorParametros = 1;
+
+    if (nombre !== undefined) {
+      camposPermitidos.push(`nombre = $${contadorParametros++}`);
+      valores.push(nombre);
+    }
+    if (monto_objetivo !== undefined) {
+      camposPermitidos.push(`monto_objetivo = $${contadorParametros++}`);
+      valores.push(monto_objetivo);
+    }
+    if (monto_actual !== undefined) {
+      camposPermitidos.push(`monto_actual = $${contadorParametros++}`);
+      valores.push(monto_actual);
+    }
+    if (bolsillo_origen_id !== undefined) {
+      camposPermitidos.push(`bolsillo_origen_id = $${contadorParametros++}`);
+      valores.push(bolsillo_origen_id);
+    }
+
+    // Si se actualizan montos pero no se manda explícitamente "completado", recalculamos automáticamente el estado
+    if (completado !== undefined) {
+      camposPermitidos.push(`completado = $${contadorParametros++}`);
+      valores.push(completado);
+    } else if (monto_objetivo !== undefined || monto_actual !== undefined) {
+      const nuevoObjetivo = monto_objetivo !== undefined ? monto_objetivo : metaActual.monto_objetivo;
+      const nuevoActual = monto_actual !== undefined ? monto_actual : metaActual.monto_actual;
+      const estadoCalculado = nuevoActual >= nuevoObjetivo;
+      
+      camposPermitidos.push(`completado = $${contadorParametros++}`);
+      valores.push(estadoCalculado);
+    }
+
+    if (camposPermitidos.length === 0) {
+      const error = new Error('No se proporcionaron campos válidos para actualizar.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Añadimos el ID de la meta y el usuario al final del arreglo de valores para la cláusula WHERE
+    valores.push(metaId);
+    valores.push(usuarioId);
+
+    const queryUpdate = `
+      UPDATE public.cartera_metas 
+      SET ${camposPermitidos.join(', ')}
+      WHERE id = $${contadorParametros++} AND usuario_id = $${contadorParametros}::uuid
+      RETURNING id, usuario_id, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, bolsillo_origen_id, completado, created_at;
+    `;
+
+    const { rows } = await client.query(queryUpdate, valores);
+
+    await client.query('COMMIT');
+    return rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const eliminarMeta = async (metaId, usuarioId) => {
+  const query = `
+    DELETE FROM public.cartera_metas
+    WHERE id = $1 AND usuario_id = $2::uuid
+    RETURNING id, nombre, monto_objetivo::FLOAT, monto_actual::FLOAT, completado;
+  `;
+
+  const { rows } = await pool.query(query, [metaId, usuarioId]);
+
+  if (rows.length === 0) {
+    const error = new Error('La meta no existe o no pertenece al usuario.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return rows[0];
+};
+
 module.exports = {
   createMeta,
   depositarAMeta,
-  getMetasByUsuario
+  getMetasByUsuario,
+  editarMeta,
+  eliminarMeta,
 };

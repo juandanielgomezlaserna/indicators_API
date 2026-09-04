@@ -19,6 +19,20 @@ const createMetaSchema = z.object({
     .nullable()
 });
 
+const updateMetaSchema = z.object({
+  nombre: z.string().min(1, { message: 'El nombre de la meta no puede estar vacío.' }).trim().optional(),
+  monto_objetivo: z.coerce.number().positive({ message: 'El monto objetivo debe ser mayor a 0.' }).optional(),
+  fecha_limite: z.string().datetime({ message: 'La fecha límite debe ser una fecha ISO 8601 válida.' }).optional().nullable(),
+  monto_actual: z.coerce.number().nonnegative({ message: 'El monto actual no puede ser negativo.' }).optional(),
+  completado: z.boolean({ invalid_type_error: 'El campo completado debe ser un booleano.' }).optional(),
+  bolsillo_origen_id: z.coerce
+    .number({ invalid_type_error: 'El bolsillo_origen_id debe ser un número' })
+    .int('El bolsillo_origen_id debe ser un número entero')
+    .positive('El bolsillo_origen_id debe ser válido')
+    .optional()
+    .nullable()
+});
+
 // Esquema de validación para realizar un depósito a una meta
 const depositarAMetaSchema = z.object({
   monto: z.coerce.number().positive({ message: 'El monto a depositar debe ser mayor a 0.' }),
@@ -84,6 +98,28 @@ const validateDepositarMeta = (req, res, next) => {
   }
 };
 
+const validateUpdateMeta = (req, res, next) => {
+  try {
+    req.body = updateMetaSchema.parse(req.body);
+    // Reutilizamos el validador de parámetros numéricos para el ID de la meta
+    const { paramsNumberIdSchema } = require('./carteraMeta.validator'); // O adaptarlo según el archivo actual
+    req.params = paramsNumberIdSchema.parse(req.params);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos de actualización inválidos',
+        errors: error.errors.map((err) => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   createMetaSchema,
   depositarAMetaSchema,
@@ -91,4 +127,5 @@ module.exports = {
   usuarioIdSchema,
   validateCreateMeta,
   validateDepositarMeta,
+  validateUpdateMeta,
 };
