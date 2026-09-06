@@ -52,4 +52,11 @@ router.patch('/:id', validateUpdateRecurrente, carteraRecurrenteController.updat
  */
 router.get('/', carteraRecurrenteController.getRecurrentes);
 
+/**
+ * @route   DELETE /api/v1/cartera/recurrentes/:id
+ * @desc    Elimina una transacción recurrente del usuario autenticado
+ * @access  Private (JWT)
+ */
+router.delete('/:id', validateParamsId, carteraRecurrenteController.deleteRecurrente);
+
 module.exports = router;

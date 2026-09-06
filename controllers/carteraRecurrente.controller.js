@@ -122,10 +122,28 @@ const updateRecurrente = async (req, res, next) => {
   }
 };
 
+const deleteRecurrente = async (req, res, next) => {
+  try {
+    const usuarioId = usuarioIdSchema.parse(req.user?.id);
+    const { id } = req.params;
+
+    const resultado = await carteraRecurrenteService.deleteRecurrente(id, usuarioId);
+
+    return res.status(200).json({
+      status: 'success',
+      message: resultado.mensaje,
+      data: { id: resultado.id }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createRecurrente,
   getRecurrentes,
   toggleEstado,
   ejecutar,
-  updateRecurrente
+  updateRecurrente,
+  deleteRecurrente,
 };

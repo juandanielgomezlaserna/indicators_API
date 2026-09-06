@@ -245,10 +245,32 @@ const updateRecurrente = async (id, usuarioId, datosActualizados) => {
   }
 };
 
+const deleteRecurrente = async (id, usuarioId) => {
+  const query = `
+    DELETE FROM public.cartera_recurrentes
+    WHERE id = $1::integer AND usuario_id = $2::uuid
+    RETURNING id;
+  `;
+  
+  const { rows } = await pool.query(query, [id, usuarioId]);
+
+  if (rows.length === 0) {
+    const error = new Error('La transacción recurrente especificada no existe o no pertenece al usuario.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return {
+    mensaje: 'Transacción recurrente eliminada exitosamente',
+    id: rows[0].id
+  };
+};
+
 module.exports = {
   createRecurrente,
   getRecurrentesByUsuario,
   toggleEstadoRecurrente,
   ejecutarRecurrente,
   updateRecurrente,
+  deleteRecurrente,
 };
