@@ -6,7 +6,6 @@
 const { pool } = require('../config/db');
 
 const createRecurrente = async (usuarioId, {
-  descripcion,
   monto,
   tipo,
   categoria,
@@ -18,22 +17,21 @@ const createRecurrente = async (usuarioId, {
 }) => {
   const query = `
     INSERT INTO public.cartera_recurrentes (
-      usuario_id, descripcion, monto, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo
+      usuario_id, monto, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo
     )
-    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    RETURNING id, usuario_id, descripcion, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
+    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, usuario_id, monto::FLOAT, tipo, categoria, frecuencia, dia_pago, proxima_ejecucion, bolsillo_id, activo;
   `;
 
   const values = [
     usuarioId,
-    descripcion,
     monto,
     tipo,
     categoria,
     frecuencia,
     dia_pago || null,
     proxima_ejecucion,
-    bolsillo_id, // Numérico limpio sin ::uuid
+    bolsillo_id,
     activo !== undefined ? activo : true
   ];
 
@@ -49,7 +47,7 @@ const createRecurrente = async (usuarioId, {
 const getRecurrentesByUsuario = async (usuarioId) => {
   const query = `
     SELECT 
-      r.id, r.usuario_id, r.descripcion, r.monto::FLOAT, r.tipo, 
+      r.id, r.usuario_id, r.monto::FLOAT, r.tipo, 
       r.categoria, r.frecuencia, r.dia_pago, r.proxima_ejecucion, 
       r.bolsillo_id, b.nombre AS bolsillo_nombre, r.activo
     FROM public.cartera_recurrentes r
@@ -72,7 +70,7 @@ const toggleEstadoRecurrente = async (id, usuarioId) => {
     UPDATE public.cartera_recurrentes
     SET activo = NOT activo
     WHERE id = $1 AND usuario_id = $2::uuid
-    RETURNING id, descripcion, activo;
+    RETURNING id, activo;
   `;
   const { rows } = await pool.query(query, [id, usuarioId]);
   
@@ -128,12 +126,11 @@ const ejecutarRecurrente = async (id, usuarioId) => {
         usuario_id, 
         tipo, 
         monto, 
-        categoria, 
-        descripcion, 
+        categoria,  
         bolsillo_origen_id, 
         fecha_transaccion
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6::integer, CURRENT_TIMESTAMP)
+      VALUES ($1::uuid, $2, $3, $4, $5::integer, CURRENT_TIMESTAMP)
       RETURNING id;
     `;
 
@@ -142,7 +139,6 @@ const ejecutarRecurrente = async (id, usuarioId) => {
       rec.tipo,
       rec.monto,
       rec.categoria,
-      rec.descripcion,
       rec.bolsillo_id
     ]);
 
@@ -233,7 +229,7 @@ const updateRecurrente = async (id, usuarioId, datosActualizados) => {
       WHERE id = $${idParamIndex} AND usuario_id = $${usuarioParamIndex}::uuid
       RETURNING 
         id, usuario_id, tipo, monto::FLOAT, categoria, frecuencia, 
-        dia_pago, bolsillo_id, proxima_ejecucion, activo, descripcion;
+        dia_pago, bolsillo_id, proxima_ejecucion, activo;
     `;
 
     const result = await client.query(updateQuery, values);
