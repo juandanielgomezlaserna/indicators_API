@@ -24,11 +24,6 @@ const createRecurrenteSchema = z.object({
     .min(1, { message: 'La categoría es obligatoria.' })
     .trim(),
     
-  descripcion: z.string()
-    .trim()
-    .optional()
-    .nullable(),
-    
   frecuencia: z.enum(['diario', 'semanal', 'quincenal', 'mensual', 'anual'], {
     message: "Frecuencia no válida. Opciones: 'diario', 'semanal', 'quincenal', 'mensual', 'anual'."
   }),
