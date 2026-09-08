@@ -156,7 +156,7 @@ const ejecutarRecurrente = async (id, usuarioId) => {
       UPDATE public.cartera_recurrentes
       SET proxima_ejecucion = proxima_ejecucion + ${intervaloSQL}
       WHERE id = $1::integer AND usuario_id = $2::uuid
-      RETURNING id, descripcion, proxima_ejecucion;
+      RETURNING id, proxima_ejecucion;
     `;
     const updateRes = await client.query(updateFechaQuery, [id, usuarioId]);
 
