@@ -13,6 +13,7 @@ const getAllIndicators = async (usuarioId) => {
       i.valor::FLOAT, 
       i.usuario_id, 
       i.created_at,
+      i.icono,
       COUNT(d.id)::INT AS total_deseos
     FROM public.indicadores i
     LEFT JOIN public.deseos d ON i.id = d.indicador_id
