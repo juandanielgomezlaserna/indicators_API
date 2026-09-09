@@ -40,8 +40,8 @@ const abonarDeuda = async (req, res, next) => {
     const usuarioId = usuarioIdSchema.parse(req.user?.id);
     const { id } = req.params;
     
-    // Ojo aquí: el orden debe coincidir exactamente con el service: (usuarioId, deudaId, payload)
-    const resultado = await carteraDeudaService.abonarDeuda(usuarioId, id, req.body);
+    // El orden correcto es: (deudaId, usuarioId, req.body)
+    const resultado = await carteraDeudaService.abonarDeuda(id, usuarioId, req.body);
 
     return res.status(200).json({
       status: 'success',
