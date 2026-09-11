@@ -23,18 +23,20 @@ const evaluarEstadoRitualService = async (usuarioId, fechaClienteIso) => {
     `;
     
     const { rows } = await client.query(query, [usuarioId, fechaClienteIso]);
-    const ultimoRitual = rows || null;
+    
+    // Extracción correcta del primer elemento
+    const ultimoRitual = rows.length > 0 ? rows : null;
 
     // 2. Extraer día y hora locales del cliente
     const diaSemana = fechaCliente.getDay(); // 0 = Domingo
     const hora = fechaCliente.getHours();    // Formato 24h (19 = 7:00 PM)
 
-    // Regla exacta: Domingo (0) y desde las 7:00 PM (>= 19)
+    // Regla exacta: Domingo (0) a partir de las 7:00 PM (>= 19)
     const esDomingoDespuesDe7pm = (diaSemana === 4 && hora >= 19);
 
-    const completadoEstaSemana = ultimoRitual ? ultimoRitual.completado_esta_semana : false;
+    const completadoEstaSemana = ultimoRitual ? Boolean(ultimoRitual.completado_esta_semana) : false;
     
-    // 3. Activación: Solo si es domingo >= 7:00 PM y no se ha completado esta semana
+    // 3. Regla de activación
     const debeIniciar = !completadoEstaSemana && esDomingoDespuesDe7pm;
 
     return {
