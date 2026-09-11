@@ -25,14 +25,17 @@ const evaluarEstadoRitualService = async (usuarioId, fechaClienteIso) => {
     const { rows } = await client.query(query, [usuarioId, fechaClienteIso]);
     const ultimoRitual = rows || null;
 
-    // 2. Determinar el día de la semana del cliente (0 = Domingo, 5 = Viernes, 6 = Sábado)
-    const diaSemana = fechaCliente.getDay();
-    const esFinDeSemana = (diaSemana === 5 || diaSemana === 6 || diaSemana === 0);
+    // 2. Extraer día y hora locales del cliente
+    const diaSemana = fechaCliente.getDay(); // 0 = Domingo
+    const hora = fechaCliente.getHours();    // Formato 24h (19 = 7:00 PM)
+
+    // Regla exacta: Domingo (0) y desde las 7:00 PM (>= 19)
+    const esDomingoDespuesDe7pm = (diaSemana === 4 && hora >= 19);
 
     const completadoEstaSemana = ultimoRitual ? ultimoRitual.completado_esta_semana : false;
     
-    // 3. Regla de activación basada en el contexto del usuario
-    const debeIniciar = !completadoEstaSemana && esFinDeSemana;
+    // 3. Activación: Solo si es domingo >= 7:00 PM y no se ha completado esta semana
+    const debeIniciar = !completadoEstaSemana && esDomingoDespuesDe7pm;
 
     return {
       debe_iniciar: debeIniciar,
@@ -43,7 +46,7 @@ const evaluarEstadoRitualService = async (usuarioId, fechaClienteIso) => {
         ? 'Es momento de realizar tu Ritual de Cierre Semanal.' 
         : completadoEstaSemana 
           ? 'Ya completaste tu ritual de esta semana.' 
-          : 'El ritual se activará durante el fin de semana.'
+          : 'El ritual se activará el domingo a las 7:00 PM.'
     };
   } finally {
     client.release();
