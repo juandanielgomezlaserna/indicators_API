@@ -19,6 +19,7 @@ const carteraBalance = require('./routes/carteraBalance.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
 const authRoutes = require('./routes/auth.routes');
 const iaRoutes = require('./routes/ia.routes');
+const ritualCierreRoutes = require('./routes/ritualCierre.routes');
 
 // 3. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/v1/cartera-balance', carteraBalance);
 app.use('/api/v1/usuario', usuarioRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/ia', iaRoutes);
+app.use('/api/v1/ritual-cierre', ritualCierreRoutes);
 
 // 6. MANEJO DE RUTAS NO ENCONTRADAS (404)
 app.use((req, res, next) => {
