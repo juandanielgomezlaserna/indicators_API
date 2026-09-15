@@ -4,7 +4,6 @@ const { pool } = require('../config/db');
 const login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
-
     return res.status(200).json({
       status: 'success',
       data: result,
@@ -23,13 +22,12 @@ const login = async (req, res, next) => {
 const register = async (req, res, next) => {
   try {
     const result = await authService.register(req.body);
-
     return res.status(201).json({
       status: 'success',
       data: result,
     });
   } catch (error) {
-    console.log('Error en registerController:', error); // <- Imprime el error real en la consola de Node/Render
+    console.log('Error en registerController:', error);
     if (error.statusCode) {
       return res.status(error.statusCode).json({
         status: 'error',
@@ -42,7 +40,6 @@ const register = async (req, res, next) => {
 
 const getMe = async (req, res) => {
   try {
-    // Cambia 'created_at' por 'creado_at' si así se llama en tu tabla de Neon
     const query = `
       SELECT id, usuario, email, nombre_completo, created_at 
       FROM public.usuario 
@@ -50,16 +47,16 @@ const getMe = async (req, res) => {
     `;
     const { rows } = await pool.query(query, [req.usuarioId]);
 
-    if (!rows[0]) {
+    if (!rows) {
       return res.status(404).json({
         status: 'error',
         message: 'Usuario no encontrado',
       });
     }
-    
+
     return res.status(200).json({
       status: 'success',
-      data: { usuario: rows[0] },
+      data: { usuario: rows },
     });
   } catch (error) {
     console.error("Error en getMe:", error);
@@ -70,4 +67,22 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { login, register, getMe };
+const obtenerCodigoActivoController = async (req, res, next) => {
+  try {
+    const codigoActivo = await authService.obtenerCodigoActivoService();
+    return res.status(200).json({
+      status: 'success',
+      message: 'Código activo obtenido correctamente.',
+      data: codigoActivo,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  login,
+  register,
+  getMe,
+  obtenerCodigoActivoController,
+};

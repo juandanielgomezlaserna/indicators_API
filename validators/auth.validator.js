@@ -1,5 +1,3 @@
-const { body, validationResult } = require('express-validator');
-
 const validateLogin = [
   body('usuario')
     .trim()
@@ -8,7 +6,6 @@ const validateLogin = [
   body('password')
     .notEmpty()
     .withMessage('La contraseña es requerida'),
-
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -29,27 +26,27 @@ const validateRegister = [
     .withMessage('El nombre completo es requerido')
     .isLength({ min: 2, max: 150 })
     .withMessage('El nombre completo debe tener entre 2 y 150 caracteres'),
-
   body('usuario')
     .trim()
     .notEmpty()
     .withMessage('El usuario es requerido')
-    .isLength({ min: 2, max: 50 })
+    .isLength({ min: 3, max: 50 })
     .withMessage('El usuario debe tener entre 3 y 50 caracteres'),
-
   body('email')
     .trim()
     .notEmpty()
     .withMessage('El correo electrónico es requerido')
     .isEmail()
     .withMessage('Debe ser un correo electrónico válido'),
-
   body('password')
     .notEmpty()
     .withMessage('La contraseña es requerida')
     .isLength({ min: 6 })
     .withMessage('La contraseña debe tener al menos 6 caracteres'),
-
+  body('codigo_acceso')
+    .trim()
+    .notEmpty()
+    .withMessage('El código de acceso es requerido'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -63,4 +60,7 @@ const validateRegister = [
   },
 ];
 
-module.exports = { validateLogin, validateRegister };
+module.exports = {
+  validateLogin,
+  validateRegister,
+};
