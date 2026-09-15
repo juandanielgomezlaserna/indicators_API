@@ -56,7 +56,6 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
   try {
     await client.query('BEGIN');
 
-    // 1. Validar el código de acceso activo
     const checkCodigoQuery = `
       SELECT id, codigo 
       FROM public.codigos_invitacion 
@@ -69,7 +68,8 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       throw { statusCode: 400, message: 'El código de acceso es incorrecto o ya fue utilizado' };
     }
 
-    const codigoId = resCodigo.rows.id; // Corregido: rows
+    // ⚠️ CORRECCIÓN: Agregar  para obtener el objeto del arreglo
+    const codigoId = resCodigo.rows.id; 
 
     // 2. Verificar disponibilidad de usuario o email
     const checkQuery = `
@@ -83,11 +83,11 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       throw { statusCode: 409, message: 'El usuario o el correo electrónico ya están registrados' };
     }
 
-    // 3. Hash de la contraseña
+    // 3. Cifrar la contraseña
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // 4. Crear el usuario en la base de datos
+    // 4. Insertar usuario
     const insertQuery = `
       INSERT INTO public.usuario (nombre_completo, usuario, email, password_hash, created_at, updated_at)
       VALUES ($1, $2, $3, $4, NOW(), NOW())
@@ -100,9 +100,10 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       password_hash,
     ]);
 
-    const user = rows; // Corregido: rows
+    // ⚠️ CORRECCIÓN: Agregar  para obtener el objeto del nuevo usuario
+    const user = rows; 
 
-    // 5. Marcar el código de acceso como usado
+    // 5. Marcar el código de acceso como usado (ahora sí recibirá id reales)
     const updateCodigoQuery = `
       UPDATE public.codigos_invitacion 
       SET usado = true, usado_por_usuario_id = $1::uuid, fecha_uso = NOW()
