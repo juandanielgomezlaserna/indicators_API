@@ -56,6 +56,7 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
   try {
     await client.query('BEGIN');
 
+    // 1. Validar el código de acceso activo
     const checkCodigoQuery = `
       SELECT id, codigo 
       FROM public.codigos_invitacion 
@@ -68,7 +69,7 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       throw { statusCode: 400, message: 'El código de acceso es incorrecto o ya fue utilizado' };
     }
 
-    // ⚠️ CORRECCIÓN: Agregar  para obtener el objeto del arreglo
+    // FIX: Agregar  para obtener el objeto del arreglo
     const codigoId = resCodigo.rows.id; 
 
     // 2. Verificar disponibilidad de usuario o email
@@ -100,10 +101,10 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       password_hash,
     ]);
 
-    // ⚠️ CORRECCIÓN: Agregar  para obtener el objeto del nuevo usuario
+    // FIX: Agregar  para obtener el objeto del nuevo usuario
     const user = rows; 
 
-    // 5. Marcar el código de acceso como usado (ahora sí recibirá id reales)
+    // 5. Marcar el código de acceso como usado
     const updateCodigoQuery = `
       UPDATE public.codigos_invitacion 
       SET usado = true, usado_por_usuario_id = $1::uuid, fecha_uso = NOW()
