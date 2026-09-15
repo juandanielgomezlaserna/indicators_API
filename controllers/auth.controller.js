@@ -46,8 +46,9 @@ const getMe = async (req, res) => {
       WHERE id = $1;
     `;
     const { rows } = await pool.query(query, [req.usuarioId]);
+    const [user] = rows;
 
-    if (!rows) {
+    if (!user) {
       return res.status(404).json({
         status: 'error',
         message: 'Usuario no encontrado',
@@ -56,7 +57,7 @@ const getMe = async (req, res) => {
 
     return res.status(200).json({
       status: 'success',
-      data: { usuario: rows },
+      data: { usuario: user },
     });
   } catch (error) {
     console.error("Error en getMe:", error);
