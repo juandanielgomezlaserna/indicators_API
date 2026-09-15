@@ -10,7 +10,9 @@ const login = async ({ usuario, password }) => {
     WHERE (usuario = $1 OR email = $1) AND activo = true;
   `;
   const { rows } = await pool.query(query, [usuario]);
-  const user = rows;
+  
+  // Desestructuración: extrae el primer elemento del arreglo 'rows'
+  const [user] = rows;
 
   if (!user) {
     throw { statusCode: 401, message: 'Credenciales inválidas' };
@@ -69,8 +71,9 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       throw { statusCode: 400, message: 'El código de acceso es incorrecto o ya fue utilizado' };
     }
 
-    // FIX: Agregar  para obtener el objeto del arreglo
-    const codigoId = resCodigo.rows.id; 
+    // Desestructuración del registro del código
+    const [codigoRow] = resCodigo.rows;
+    const codigoId = codigoRow.id;
 
     // 2. Verificar disponibilidad de usuario o email
     const checkQuery = `
@@ -101,8 +104,8 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
       password_hash,
     ]);
 
-    // FIX: Agregar  para obtener el objeto del nuevo usuario
-    const user = rows; 
+    // Desestructuración del usuario creado
+    const [user] = rows;
 
     // 5. Marcar el código de acceso como usado
     const updateCodigoQuery = `
@@ -144,16 +147,15 @@ const register = async ({ nombre_completo, usuario, email, password, codigo_acce
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
-  } finally {
-    client.release();
-  }
+  } finally { client.release(); }
 };
 
 const obtenerCodigoActivoService = async () => {
   const { rows } = await pool.query(
     "SELECT codigo, created_at FROM public.codigos_invitacion WHERE usado = false ORDER BY id DESC LIMIT 1;"
   );
-  return rows || null;
+  const [codigoActivo] = rows;
+  return codigoActivo || null;
 };
 
 module.exports = {
