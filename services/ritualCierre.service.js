@@ -32,7 +32,7 @@ const evaluarEstadoRitualService = async (usuarioId, fechaClienteIso) => {
     const hora = fechaCliente.getHours();    // Formato 24h (19 = 7:00 PM)
 
     // Regla exacta: Domingo (0) a partir de las 7:00 PM (>= 19)
-    const esDomingoDespuesDe7pm = (diaSemana === 4 && hora >= 19);
+    const esDomingoDespuesDe7pm = (diaSemana === 4 && hora >= 13);
 
     const completadoEstaSemana = ultimoRitual ? Boolean(ultimoRitual.completado_esta_semana) : false;
     
